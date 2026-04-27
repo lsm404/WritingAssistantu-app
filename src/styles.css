@@ -31,6 +31,178 @@ body {
   overflow-x: hidden;
 }
 
+.auth-loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  color: var(--text-secondary);
+  font-size: 14px;
+  background:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.12), transparent 26%),
+    linear-gradient(180deg, #f8f9fd, #eef2ff);
+}
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.18), transparent 26%),
+    linear-gradient(135deg, #f4f7ff 0%, #eef3ff 42%, #f7f8fc 100%);
+}
+
+.auth-hero {
+  position: relative;
+  padding: 72px 68px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+}
+
+.auth-hero::before {
+  content: "";
+  position: absolute;
+  inset: 36px;
+  border-radius: 36px;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.8), transparent 24%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.34));
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 40px 80px rgba(99, 102, 241, 0.12);
+}
+
+.auth-hero > * {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+}
+
+.auth-hero-badge,
+.membership-kicker,
+.auth-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.auth-hero h1 {
+  margin: 0;
+  font-size: 44px;
+  line-height: 1.08;
+  font-weight: 900;
+  color: #101828;
+}
+
+.auth-hero p,
+.auth-title-block p,
+.membership-hero-copy p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #5b6474;
+}
+
+.auth-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.auth-feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.auth-feature-card .anticon {
+  margin-top: 3px;
+  font-size: 18px;
+  color: #4f46e5;
+}
+
+.auth-feature-card strong,
+.membership-status-name,
+.membership-plan-card h3 {
+  display: block;
+  color: #111827;
+}
+
+.auth-feature-card span {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #667085;
+}
+
+.auth-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 30px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.auth-card-top {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-title-block h2 {
+  margin: 12px 0 8px;
+  font-size: 30px;
+  line-height: 1.15;
+  color: #111827;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-field span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
 .app-container {
   display: flex;
   width: 100vw;
@@ -217,6 +389,25 @@ body {
   border: 1px solid #ebe7ff;
 }
 
+.sidebar-logout-btn {
+  margin-top: 12px;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.footer-mini-account {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .footer-account-name {
   display: flex;
   align-items: center;
@@ -306,6 +497,24 @@ body {
   font-size: 18px;
   font-weight: 800;
   color: var(--text-main);
+}
+
+.header-user-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.header-membership-tag {
+  margin-inline-end: 0 !important;
+  border-radius: 999px !important;
+  padding-inline: 10px !important;
+  line-height: 24px !important;
 }
 
 .header-edit-icon {
@@ -758,6 +967,210 @@ body {
   gap: 10px;
 }
 
+.membership-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.membership-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px;
+}
+
+.membership-hero-copy,
+.membership-status-card,
+.membership-plan-card {
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(235, 237, 244, 0.98);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.membership-hero-copy {
+  padding: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 34%),
+    rgba(255, 255, 255, 0.92);
+}
+
+.membership-hero-copy h2 {
+  margin: 14px 0 10px;
+  font-size: 34px;
+  line-height: 1.14;
+  color: #0f172a;
+}
+
+.membership-points {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.membership-points > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #475467;
+}
+
+.membership-points .anticon {
+  color: #16a34a;
+}
+
+.membership-status-card {
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  background: linear-gradient(160deg, #111827 0%, #1f2937 100%);
+  color: white;
+}
+
+.membership-status-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.membership-status-name {
+  margin-top: 28px;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 900;
+  color: white;
+}
+
+.membership-status-meta {
+  margin-top: 10px;
+  max-width: 220px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.membership-status-strip {
+  position: absolute;
+  right: -34px;
+  bottom: -38px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.56), rgba(129, 140, 248, 0));
+}
+
+.membership-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.membership-plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+}
+
+.membership-plan-card.featured {
+  background:
+    radial-gradient(circle at top right, rgba(250, 204, 21, 0.14), transparent 26%),
+    rgba(255, 255, 255, 0.94);
+}
+
+.membership-plan-card.current {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 18px 40px rgba(99, 102, 241, 0.12);
+}
+
+.membership-plan-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.membership-plan-head h3 {
+  margin: 12px 0 6px;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.membership-plan-head p {
+  margin: 0;
+  font-size: 13px;
+  color: #667085;
+}
+
+.membership-plan-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 18px;
+}
+
+.membership-badge {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.membership-price-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.membership-price {
+  font-size: 36px;
+  line-height: 1;
+  font-weight: 900;
+  color: #111827;
+}
+
+.membership-price-note {
+  font-size: 13px;
+  color: #6b7280;
+  padding-bottom: 4px;
+}
+
+.membership-benefit-list {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+}
+
+.membership-benefit-list > div {
+  position: relative;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #475467;
+}
+
+.membership-benefit-list > div::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #818cf8;
+}
+
 .ant-btn-primary {
   background: var(--primary) !important;
   border-color: var(--primary) !important;
@@ -821,6 +1234,29 @@ body {
   }
 }
 
+.image-gen-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.76);
+  backdrop-filter: blur(3px);
+  border-radius: 12px;
+  z-index: 10;
+  animation: overlay-fade-in 0.2s ease;
+}
+
+.image-gen-overlay-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+}
+
 .result-loading-overlay {
   position: absolute;
   inset: 0;
@@ -862,3 +1298,368 @@ body {
   color: var(--text-secondary);
   letter-spacing: 0.01em;
 }
+
+.nav-item-badge {
+  margin-left: auto;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: white;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== 公众号手机预览弹窗 ===== */
+
+.phone-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: overlay-fade-in 0.2s ease;
+}
+
+.phone-preview-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phone-preview-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.phone-preview-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 手机外框 */
+.phone-frame {
+  width: 340px;
+  height: 680px;
+  border-radius: 48px;
+  background: #fff;
+  border: 8px solid #1a1a1a;
+  box-shadow:
+    0 0 0 1px #333,
+    0 40px 80px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 刘海 */
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 28px;
+  background: #1a1a1a;
+  border-radius: 0 0 20px 20px;
+  z-index: 10;
+}
+
+/* 状态栏 */
+.phone-status-bar {
+  height: 44px;
+  padding: 14px 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.phone-time {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: 0.02em;
+}
+
+.phone-status-icons {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #111;
+}
+
+.phone-battery {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.phone-battery-body {
+  width: 22px;
+  height: 11px;
+  border: 1.5px solid #111;
+  border-radius: 2.5px;
+  padding: 1.5px;
+}
+
+.phone-battery-fill {
+  width: 75%;
+  height: 100%;
+  background: #111;
+  border-radius: 1px;
+}
+
+.phone-battery-cap {
+  width: 2px;
+  height: 5px;
+  background: #111;
+  border-radius: 0 1px 1px 0;
+}
+
+/* 导航栏 */
+.phone-nav-bar {
+  height: 40px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.phone-nav-back {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.phone-nav-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* 文章内容滚动区 */
+.phone-article-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #fff;
+}
+
+.phone-article-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+
+.phone-article-scroll::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 999px;
+}
+
+.phone-article-body {
+  padding: 16px 16px 20px;
+}
+
+/* 文章标题 */
+.phone-article-title {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.4;
+  color: #111;
+  margin: 0 0 12px;
+}
+
+/* 来源元信息行 */
+.phone-article-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #888;
+}
+
+.phone-original-badge {
+  background: #07c160;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  line-height: 1.6;
+}
+
+.phone-account-name {
+  font-weight: 600;
+  color: #555;
+}
+
+.phone-meta-dot {
+  color: #bbb;
+}
+
+.phone-meta-date {
+  color: #aaa;
+}
+
+/* Markdown 内容 */
+.phone-article-content {
+  font-size: 15px;
+  line-height: 1.9;
+  color: #1a1a1a;
+}
+
+.md-h1 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111;
+  margin: 20px 0 10px;
+  line-height: 1.4;
+}
+
+.md-h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin: 18px 0 8px;
+  line-height: 1.4;
+}
+
+.md-h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
+  margin: 14px 0 6px;
+}
+
+.md-p {
+  margin: 0 0 12px;
+  text-align: justify;
+}
+
+.md-img {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  margin: 12px 0;
+  object-fit: cover;
+}
+
+.md-strong {
+  font-weight: 700;
+  color: #e53e3e;
+}
+
+.md-blockquote {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid #07c160;
+  background: #f9f9f9;
+  border-radius: 0 8px 8px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.md-ul,
+.md-ol {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+}
+
+.md-li {
+  margin-bottom: 6px;
+  line-height: 1.7;
+}
+
+.md-hr {
+  border: none;
+  border-top: 1px solid #f0f0f0;
+  margin: 16px 0;
+}
+
+/* 底部操作栏 */
+.phone-bottom-bar {
+  height: 52px;
+  padding: 0 14px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.phone-bottom-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone-avatar-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #07c160, #06ae56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.phone-bottom-account {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Home 条 */
+.phone-home-bar {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.phone-home-bar::after {
+  content: "";
+  width: 120px;
+  height: 4px;
+  background: #1a1a1a;
+  border-radius: 999px;
+  opacity: 0.18;
+}
+

@@ -1,5 +1,5 @@
 import { Button, Input, Radio, Select, Space, Spin } from "antd";
-import { CopyOutlined, DeleteOutlined, FileTextOutlined, LoadingOutlined, ReloadOutlined } from "@ant-design/icons";
+import { CopyOutlined, DeleteOutlined, EyeOutlined, FileTextOutlined, LoadingOutlined, PictureOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { GeneratePayload } from "../../lib/types";
 
 const { TextArea } = Input;
@@ -9,7 +9,9 @@ type Props = {
   resultMarkdown: string;
   settingsCollapsed: boolean;
   isGenerating?: boolean;
+  isGeneratingImages?: boolean;
   isSendingDraft?: boolean;
+  imageCountOptions: Array<{ label: string; value: number }>;
   lengthOptions: Array<{ label: string; value: GeneratePayload["length"] }>;
   modeOptions: Array<{ label: string; value: GeneratePayload["mode"] }>;
   expressionModeOptions: Array<{ label: string; value: GeneratePayload["expressionMode"] }>;
@@ -24,6 +26,7 @@ type Props = {
   onSourceFilePick: () => void;
   onCopyMarkdown: () => void;
   onClearResult: () => void;
+  onPreview: () => void;
 };
 
 export function WorkspacePage({
@@ -31,7 +34,9 @@ export function WorkspacePage({
   resultMarkdown,
   settingsCollapsed,
   isGenerating = false,
+  isGeneratingImages = false,
   isSendingDraft = false,
+  imageCountOptions,
   lengthOptions,
   modeOptions,
   expressionModeOptions,
@@ -46,6 +51,7 @@ export function WorkspacePage({
   onSourceFilePick,
   onCopyMarkdown,
   onClearResult,
+  onPreview,
 }: Props) {
   return (
     <div className="panels-row">
@@ -115,6 +121,14 @@ export function WorkspacePage({
                   <Select value={articleDraft.length} onChange={(value) => onArticleFieldChange("length", value)} options={lengthOptions} />
                 </div>
                 <div className="form-item">
+                  <div className="form-item-label">配图数量</div>
+                  <Select
+                    value={articleDraft.imageCount ?? 0}
+                    onChange={(value) => onArticleFieldChange("imageCount", value)}
+                    options={imageCountOptions}
+                  />
+                </div>
+                <div className="form-item">
                   <div className="form-item-label">模式</div>
                   <Select value={articleDraft.mode} onChange={(value) => onArticleFieldChange("mode", value)} options={modeOptions} />
                 </div>
@@ -174,7 +188,14 @@ export function WorkspacePage({
           <div className="card-title-plain">生成结果</div>
 
           <div className="article-content-area" style={{ position: "relative" }}>
-            {isGenerating && <div className="stream-progress-bar" />}
+            {isGenerating && (
+              <div className="image-gen-overlay">
+                <Spin
+                  indicator={<LoadingOutlined style={{ fontSize: 38, color: "rgba(255,255,255,0.92)" }} spin />}
+                />
+                <span className="image-gen-overlay-text">正在生成文章...</span>
+              </div>
+            )}
             <TextArea
               className="editor-textarea"
               placeholder={isGenerating ? "" : "文章内容会在这里生成..."}
@@ -184,6 +205,17 @@ export function WorkspacePage({
               readOnly={isGenerating}
               disabled={isSendingDraft}
             />
+            {isGeneratingImages && (
+              <div className="image-gen-overlay">
+                <Spin
+                  indicator={<LoadingOutlined style={{ fontSize: 38, color: "rgba(255,255,255,0.92)" }} spin />}
+                />
+                <span className="image-gen-overlay-text">
+                  <PictureOutlined style={{ marginRight: 6 }} />
+                  正在生成配图...
+                </span>
+              </div>
+            )}
             {isSendingDraft && (
               <div className="result-loading-overlay">
                 <div className="result-loading-inner">
@@ -198,6 +230,13 @@ export function WorkspacePage({
 
           <div className="results-footer">
             <Space className="results-footer-left">
+              <Button
+                icon={<EyeOutlined />}
+                onClick={onPreview}
+                disabled={isGenerating || isSendingDraft || !resultMarkdown.trim()}
+              >
+                预览
+              </Button>
               <Button icon={<CopyOutlined />} onClick={onCopyMarkdown} disabled={isGenerating || isSendingDraft}>
                 复制 Markdown
               </Button>

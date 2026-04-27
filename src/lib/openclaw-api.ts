@@ -1,34 +1,31 @@
 import type {
+  AuthSession,
+  AuthUser,
   DraftPayload,
   DraftResponse,
   GeneratePayload,
   GenerateResponse,
   HealthcheckResult,
+  ImageGeneratePayload,
+  ImageGenerateResponse,
+  MembershipPlan,
+  ModelConfig,
   UploadThumbResponse,
+  UserMembership,
 } from "./types";
 
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
-const DOUBAO_PROXY_BASE_URL = "/doubao";
 
-// 强制去 AI 味指令：无论用户选哪个提示词模板，都会拼接在 system prompt 之后
-const DE_AI_TONE_INSTRUCTION = `【去 AI 味硬性规则，必须严格遵守，优先级高于其他风格设定】
-1. 禁止使用以下典型 AI 腔套路词汇与句式：
-   - "首先/其次/再者/最后" 这种机械罗列；
-   - "总而言之/综上所述/总的来说/值得一提的是/不难发现/由此可见"；
-   - "在当今/在这个…的时代/随着…的发展/在快节奏的生活中" 等宏大开场；
-   - "相信很多人都有过这样的经历" "你是否也…" 这种空泛共情；
-   - "让我们一起…" "希望本文能给你带来启发" "共勉"；
-   - "赋能、闭环、底层逻辑、认知升级、降维打击、破圈、心智、抓手" 等互联网黑话（除非主题强相关）；
-   - 过多 emoji、过多感叹号、过多反问句堆叠。
-2. 禁止"总-分-总"式的模板化结构。段落之间要有自然的思路推进，而不是条目清单感。
-3. 句子长短要交错，不要每段都 3-4 句、每句都差不多长。允许出现很短的句子，甚至单独一句成段。
-4. 不要在每个小标题下都强行凑三点。真实写作中，有的部分要展开，有的部分只需一两句带过。
-5. 观点要具体、带细节、带一点作者自己的语气，不要只做"正确的废话"的堆叠。
-6. 结尾不要总结全文、不要升华、不要喊口号，用一个具体画面、一句留白、或一个具体的建议收住即可。
-7. 小标题用具体描述，不要用"一、核心要点" "二、实践方法" 这种目录式表达。
-
-请把以上规则当作底线，在不违背主题要求的前提下，写出让人看起来像真人随手写出来的公众号文章。`;
+const DE_AI_TONE_INSTRUCTION = `【去 AI 味硬性规则，必须严格遵守，优先级高于其他风格设定。
+1. 禁止使用典型 AI 套路表达，如“首先/其次/最后”“综上所述”“不难发现”“由此可见”。
+2. 不要用模板化三段论，不要整篇都像列提纲。
+3. 句子长短要有变化，允许出现非常短的句子。
+4. 不要每个小标题都硬凑三点。
+5. 观点要具体，少说空泛正确的话。
+6. 结尾不要升华，不要喊口号，用一个具体画面或一句轻一点的话收住。
+7. 小标题要具体，不要“核心逻辑/关键要点”这种空标题。
+请把以上规则当作底线，在不违背主题要求的前提下，写出像真人自然写出来的公众号文章。}`;
 
 export const defaultBackendBaseUrl = envBaseUrl || "";
 
@@ -39,14 +36,106 @@ export async function backendHealthcheck(baseUrl: string): Promise<HealthcheckRe
     throw new Error(`Healthcheck failed with status ${response.status}`);
   }
 
-  const data = (await response.json()) as { status?: string };
+  const data = (await response.json()) as { ok?: boolean };
 
   return {
-    ok: data.status === "ok",
-    message:
-      data.status === "ok"
-        ? "Python backend is reachable."
-        : "Backend returned a success response with an unexpected payload.",
+    ok: data.ok === true,
+    message: data.ok ? "Backend is reachable." : "Backend returned an unexpected payload.",
+  };
+}
+
+export async function registerAccount(
+  baseUrl: string,
+  payload: { email: string; password: string; displayName: string },
+): Promise<{ user: AuthUser }> {
+  const response = await fetch(`${baseUrl}/v1/auth/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  const data = (await response.json()) as { user: AuthUser };
+  return { user: data.user };
+}
+
+export async function loginAccount(
+  baseUrl: string,
+  payload: { email: string; password: string },
+): Promise<AuthSession> {
+  const response = await fetch(`${baseUrl}/v1/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  return (await response.json()) as AuthSession;
+}
+
+export async function fetchCurrentUser(
+  baseUrl: string,
+  token: string,
+): Promise<{ user: AuthUser; membership: UserMembership | null; session: { expiresAt: string } }> {
+  const response = await fetch(`${baseUrl}/v1/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  return (await response.json()) as {
+    user: AuthUser;
+    membership: UserMembership | null;
+    session: { expiresAt: string };
+  };
+}
+
+export async function fetchMembershipPlans(baseUrl: string): Promise<MembershipPlan[]> {
+  const response = await fetch(`${baseUrl}/v1/plans`);
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  const data = (await response.json()) as { plans: MembershipPlan[] };
+  return data.plans;
+}
+
+export async function checkoutMembership(
+  baseUrl: string,
+  token: string,
+  planCode: string,
+): Promise<{ membership: UserMembership; order: { orderNo: string; amountLabel: string } }> {
+  const response = await fetch(`${baseUrl}/v1/memberships/checkout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ planCode }),
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  return (await response.json()) as {
+    membership: UserMembership;
+    order: { orderNo: string; amountLabel: string };
   };
 }
 
@@ -64,9 +153,6 @@ export function buildGeneratePayload(payload: GeneratePayload) {
     reference_focus: payload.referenceFocus,
     reference_level: payload.referenceLevel,
     expression_mode: payload.expressionMode,
-    api_key: payload.apiKey || undefined,
-    model: payload.apiModel || undefined,
-    api_base_url: payload.apiKey || payload.apiModel ? DOUBAO_BASE_URL : undefined,
     enable_web_search: payload.enableWebSearch ?? undefined,
   };
 }
@@ -95,7 +181,7 @@ function buildModeDescription(mode: GeneratePayload["mode"]) {
     standard: "标准公众号干货文章。",
     story: "故事化表达，增强代入感。",
     case_study: "案例拆解风格，强调具体案例。",
-    listicle: "清单型内容，条理清楚。",
+    listicle: "清单型内容，条理清晰。",
     analysis: "分析型文章，强调背景、问题和判断。",
   };
   return mapping[mode];
@@ -284,9 +370,13 @@ async function parseError(response: Response): Promise<never> {
   let message = `Request failed with status ${response.status}`;
 
   try {
-    const data = (await response.json()) as { detail?: string };
+    const data = (await response.json()) as { detail?: string; error?: string; message?: string };
     if (data.detail) {
       message = data.detail;
+    } else if (data.message) {
+      message = data.message;
+    } else if (data.error) {
+      message = data.error;
     }
   } catch {
     // Ignore JSON parsing failures and keep the default message.
@@ -300,7 +390,43 @@ export async function generateArticle(
   payload: GeneratePayload,
   onChunk?: (delta: string) => void,
 ): Promise<GenerateResponse> {
-  return generateArticleDirectly(payload, onChunk);
+  const response = await fetch(`${baseUrl}/article/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(buildGeneratePayload(payload)),
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  const data = (await response.json()) as {
+    ok: boolean;
+    article_md: string;
+    meta: {
+      model: string;
+      length: GeneratePayload["length"];
+      mode: GeneratePayload["mode"];
+      creation_mode: GeneratePayload["creationMode"];
+    };
+  };
+
+  if (onChunk && data.article_md) {
+    onChunk(data.article_md);
+  }
+
+  return {
+    ok: data.ok,
+    articleMd: data.article_md,
+    meta: {
+      model: data.meta.model,
+      length: data.meta.length,
+      mode: data.meta.mode,
+      creationMode: data.meta.creation_mode,
+    },
+  };
 }
 
 export async function sendWechatDraft(
@@ -363,4 +489,96 @@ export async function uploadWechatThumb(
     }
     throw error;
   }
+}
+
+// ===== Image Generation =====
+
+export function buildImagePayload(payload: ImageGeneratePayload) {
+  return {
+    prompt: payload.prompt,
+    negative_prompt: payload.negativePrompt || undefined,
+    size: payload.size,
+    quality: payload.quality,
+    n: payload.n,
+  };
+}
+
+export async function generateImage(payload: ImageGeneratePayload): Promise<ImageGenerateResponse> {
+  const response = await fetch(`${payload.baseUrl}/image/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${payload.authToken}`,
+    },
+    body: JSON.stringify({
+      prompt: payload.prompt,
+      negative_prompt: payload.negativePrompt || undefined,
+      size: payload.size,
+      quality: payload.quality,
+      n: payload.n,
+    }),
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  const data = (await response.json()) as {
+    images?: Array<{
+      url?: string;
+      b64_json?: string;
+      revised_prompt?: string;
+    }>;
+    meta?: {
+      model?: string;
+    };
+  };
+
+  return {
+    ok: true,
+    images: data.images || [],
+    meta: {
+      model: data.meta?.model || "",
+      size: payload.size,
+      quality: payload.quality,
+      n: payload.n,
+    },
+  };
+}
+
+// ===== Model Configuration =====
+
+export async function fetchModelConfig(baseUrl: string, token: string): Promise<ModelConfig> {
+  const response = await fetch(`${baseUrl}/v1/model-config`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  const data = (await response.json()) as { config: ModelConfig };
+  return data.config;
+}
+
+export async function updateModelConfig(baseUrl: string, token: string, config: Partial<ModelConfig>): Promise<ModelConfig> {
+  const response = await fetch(`${baseUrl}/v1/model-config`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(config),
+  });
+
+  if (!response.ok) {
+    await parseError(response);
+  }
+
+  const data = (await response.json()) as { config: ModelConfig };
+  return data.config;
 }

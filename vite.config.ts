@@ -8,10 +8,15 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     proxy: {
-      "/api": {
-        target: "http://49.235.172.63:8000",
+      "/member-api": {
+        target: "http://127.0.0.1:3100",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        rewrite: (path) => path.replace(/^\/member-api/, "/api"),
+      },
+      "/api": {
+        target: "http://127.0.0.1:3100",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, "/api"),
       },
       "/doubao": {
         target: "https://ark.cn-beijing.volces.com/api/v3",

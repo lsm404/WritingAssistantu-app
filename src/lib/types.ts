@@ -36,6 +36,7 @@ export interface GeneratePayload {
   audience: string;
   style: string;
   length: ArticleLength;
+  imageCount?: number;
   mode: WritingMode;
   systemPrompt: string;
   creationMode: CreationMode;
@@ -56,6 +57,44 @@ export interface WechatAccount {
   appId: string;
   appSecret: string;
   thumbMediaId: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MembershipPlan {
+  id: string;
+  code: string;
+  name: string;
+  billingType: "monthly" | "lifetime";
+  priceCents: number;
+  priceLabel: string;
+  durationDays: number | null;
+  isLifetime: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface UserMembership {
+  id: string;
+  status: string;
+  startAt: string;
+  endAt: string | null;
+  isActive: boolean;
+  plan: MembershipPlan;
+}
+
+export interface AuthSession {
+  token: string;
+  expiresAt: string;
+  user: AuthUser;
 }
 
 export interface DraftPayload {
@@ -92,4 +131,39 @@ export interface DraftResponse {
 export interface UploadThumbResponse {
   thumbMediaId: string;
   url?: string;
+}
+
+export type ImageSize = "1024x1024" | "1024x1792" | "1792x1024";
+
+export type ImageQuality = "standard" | "hd";
+
+export interface ImageGeneratePayload {
+  prompt: string;
+  negativePrompt?: string;
+  size: ImageSize;
+  quality: ImageQuality;
+  n: number;
+  authToken: string;
+  baseUrl: string;
+}
+
+export interface ImageGenerateResponse {
+  ok: boolean;
+  images: Array<{
+    url?: string;
+    b64_json?: string;
+    revised_prompt?: string;
+  }>;
+  meta: {
+    model: string;
+    size: ImageSize;
+    quality: ImageQuality;
+    n: number;
+  };
+}
+
+export interface ModelConfig {
+  textApiKey: string;
+  textModel: string;
+  enableWebSearch: boolean;
 }

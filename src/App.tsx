@@ -1,10 +1,31 @@
+"use client";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { App as AntApp, Button, ConfigProvider, Input, Modal, Space } from "antd";
+import { App as AntApp, Button, ConfigProvider, Input, Modal, Space, Tag } from "antd";
 import { CheckCircleFilled, CloudUploadOutlined, RocketOutlined, SendOutlined } from "@ant-design/icons";
-import { backendHealthcheck, generateArticle, sendWechatDraft, uploadWechatThumb } from "./lib/openclaw-api";
+import {
+  backendHealthcheck,
+  checkoutMembership,
+  fetchCurrentUser,
+  fetchMembershipPlans,
+  generateArticle,
+  generateImage,
+  loginAccount,
+  registerAccount,
+  sendWechatDraft,
+  uploadWechatThumb,
+} from "./lib/openclaw-api";
 import { getRuntimeInfo } from "./lib/tauri";
-import type { GeneratePayload, RuntimeInfo, WechatAccount } from "./lib/types";
+import type {
+  AuthSession,
+  AuthUser,
+  GeneratePayload,
+  MembershipPlan,
+  RuntimeInfo,
+  UserMembership,
+  WechatAccount,
+} from "./lib/types";
 import {
   audienceOptions,
   defaultAccounts,
@@ -14,6 +35,7 @@ import {
   expressionModeOptions,
   extractTitleFromMarkdown,
   type DraftMeta,
+  imageCountOptions,
   lengthOptions,
   modeOptions,
   parseStoredValue,
@@ -32,10 +54,16 @@ import { PromptPage } from "./components/pages/PromptPage";
 import { AccountPage } from "./components/pages/AccountPage";
 import { ModelPage } from "./components/pages/ModelPage";
 import { PlaceholderPage } from "./components/pages/PlaceholderPage";
+import { ImagePage } from "./components/pages/ImagePage";
+import { LoginPage } from "./components/pages/LoginPage";
+import { MembershipPage } from "./components/pages/MembershipPage";
+import { WechatPreviewModal } from "./components/WechatPreviewModal";
 
-const BACKEND_BASE_URL = import.meta.env.DEV ? "/api" : "http://49.235.172.63:8000";
+const MEMBER_BACKEND_BASE_URL = import.meta.env.VITE_MEMBER_API_BASE_URL?.trim() || "/member-api";
+const CONTENT_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || MEMBER_BACKEND_BASE_URL;
 
 const storageKeys = {
+  authToken: "openclaw.authToken",
   accounts: "openclaw.wechatAccounts",
   activeAccountId: "openclaw.activeAccountId",
   promptSlots: "openclaw.promptSlots",
@@ -51,18 +79,31 @@ function InnerApp() {
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(storageKeys.authToken) || "");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [membership, setMembership] = useState<UserMembership | null>(null);
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
+  const [checkoutLoading, setCheckoutLoading] = useState("");
   const [activeView, setActiveView] = useState<SidebarView>("workspace");
+  const [authForm, setAuthForm] = useState({
+    email: "",
+    password: "",
+    displayName: "",
+  });
   const [accounts, setAccounts] = useState<WechatAccount[]>(() =>
     parseStoredValue(storageKeys.accounts, defaultAccounts()),
   );
-  const [activeAccountId, setActiveAccountId] = useState(() =>
-    window.localStorage.getItem(storageKeys.activeAccountId) || "",
+  const [activeAccountId, setActiveAccountId] = useState(
+    () => window.localStorage.getItem(storageKeys.activeAccountId) || "",
   );
   const [promptSlots, setPromptSlots] = useState<PromptSlot[]>(() =>
     parseStoredValue(storageKeys.promptSlots, defaultPromptSlots()),
   );
-  const [activePromptId, setActivePromptId] = useState(() =>
-    window.localStorage.getItem(storageKeys.activePromptId) || "",
+  const [activePromptId, setActivePromptId] = useState(
+    () => window.localStorage.getItem(storageKeys.activePromptId) || "",
   );
   const [articleDraft, setArticleDraft] = useState<GeneratePayload>(() =>
     parseStoredValue(storageKeys.articleDraft, defaultArticleDraft()),
@@ -75,9 +116,11 @@ function InnerApp() {
   );
   const [serviceStatus, setServiceStatus] = useState("连接中");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [isSendingDraft, setIsSendingDraft] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [accountDialogMode, setAccountDialogMode] = useState<"create" | "edit">("create");
   const [accountForm, setAccountForm] = useState<WechatAccount>(defaultAccounts()[0]);
@@ -85,9 +128,35 @@ function InnerApp() {
 
   useEffect(() => {
     getRuntimeInfo().then(setRuntimeInfo);
-    backendHealthcheck(BACKEND_BASE_URL)
+    backendHealthcheck(MEMBER_BACKEND_BASE_URL)
       .then((result) => setServiceStatus(result.ok ? "服务正常" : "服务异常"))
       .catch(() => setServiceStatus("连接失败"));
+  }, []);
+
+  useEffect(() => {
+    fetchMembershipPlans(MEMBER_BACKEND_BASE_URL).then(setPlans).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    const token = window.localStorage.getItem(storageKeys.authToken) || "";
+    if (!token) {
+      setAuthReady(true);
+      return;
+    }
+
+    fetchCurrentUser(MEMBER_BACKEND_BASE_URL, token)
+      .then((result) => {
+        setAuthToken(token);
+        setCurrentUser(result.user);
+        setMembership(result.membership);
+      })
+      .catch(() => {
+        window.localStorage.removeItem(storageKeys.authToken);
+        setAuthToken("");
+        setCurrentUser(null);
+        setMembership(null);
+      })
+      .finally(() => setAuthReady(true));
   }, []);
 
   useEffect(() => {
@@ -119,16 +188,26 @@ function InnerApp() {
     window.localStorage.setItem(storageKeys.activeAccountId, activeAccountId);
     window.localStorage.setItem(storageKeys.promptSlots, JSON.stringify(promptSlots));
     window.localStorage.setItem(storageKeys.activePromptId, activePromptId);
-    window.localStorage.setItem(storageKeys.articleDraft, JSON.stringify(articleDraft));
+    const { apiKey: _k, apiModel: _m, apiBaseUrl: _b, ...draftToSave } = articleDraft;
+    window.localStorage.setItem(storageKeys.articleDraft, JSON.stringify(draftToSave));
     window.localStorage.setItem(storageKeys.draftMeta, JSON.stringify(draftMeta));
     window.localStorage.setItem(storageKeys.resultMarkdown, resultMarkdown);
     setLastSaveTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
   }, [accounts, activeAccountId, promptSlots, activePromptId, articleDraft, draftMeta, resultMarkdown]);
 
+  useEffect(() => {
+    if (authToken) {
+      window.localStorage.setItem(storageKeys.authToken, authToken);
+    } else {
+      window.localStorage.removeItem(storageKeys.authToken);
+    }
+  }, [authToken]);
+
   const activeAccount = useMemo(
     () => accounts.find((account) => account.id === activeAccountId) ?? accounts[0],
     [accounts, activeAccountId],
   );
+
   const activePrompt = useMemo(
     () => promptSlots.find((slot) => slot.id === activePromptId) ?? promptSlots[0],
     [promptSlots, activePromptId],
@@ -149,20 +228,11 @@ function InnerApp() {
       ...current,
       audience: current.audience || "大学生",
       style: current.style || "专业理性",
-      apiModel:
-        !current.apiModel || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(current.apiModel)
-          ? "doubao-seed-2-0-pro-260215"
-          : current.apiModel,
-      apiBaseUrl: current.apiBaseUrl || "https://ark.cn-beijing.volces.com/api/v3",
     }));
   }, []);
 
   const setArticleField = <K extends keyof GeneratePayload>(key: K, value: GeneratePayload[K]) => {
     setArticleDraft((current) => ({ ...current, [key]: value }));
-  };
-
-  const setDraftField = <K extends keyof DraftMeta>(key: K, value: DraftMeta[K]) => {
-    setDraftMeta((current) => ({ ...current, [key]: value }));
   };
 
   const updateActiveAccount = (patch: Partial<WechatAccount>) => {
@@ -183,6 +253,151 @@ function InnerApp() {
     setActivePromptId(id);
     const target = promptSlots.find((slot) => slot.id === id);
     if (target) setArticleField("systemPrompt", target.content);
+  };
+
+  const refreshCurrentUser = async (token: string) => {
+    const result = await fetchCurrentUser(MEMBER_BACKEND_BASE_URL, token);
+    setCurrentUser(result.user);
+    setMembership(result.membership);
+  };
+
+  const buildIllustrationPrompts = (articleMd: string, title: string, count: number) => {
+    const sections = articleMd
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("![]("));
+    const chunks = sections.filter((line) => !line.startsWith("# ")).slice(0, Math.max(count * 2, count));
+
+    return Array.from({ length: count }, (_, index) => {
+      const chunk = chunks[index] || chunks[chunks.length - 1] || title;
+      return [
+        "微信公众号文章配图，中文内容理解后生成画面。",
+        "风格要求：简洁、质感、高级、适合公众号排版配图。",
+        `文章标题：${title}`,
+        `配图重点：${chunk.replace(/^#+\s*/, "").slice(0, 120)}`,
+      ].join(" ");
+    });
+  };
+
+  const mergeArticleWithImages = (articleMd: string, imageUrls: string[]) => {
+    if (!imageUrls.length) {
+      return articleMd;
+    }
+
+    const lines = articleMd.split("\n");
+    const headingIndexes = lines
+      .map((line, index) => ({ line: line.trim(), index }))
+      .filter((item) => item.line.startsWith("## "))
+      .map((item) => item.index);
+
+    if (!headingIndexes.length) {
+      return [articleMd, ...imageUrls.map((url) => `\n![](${url})\n`)].join("\n");
+    }
+
+    const insertIndexes = headingIndexes.slice(0, imageUrls.length).reverse();
+    insertIndexes.forEach((lineIndex, reverseIndex) => {
+      const imageUrl = imageUrls[imageUrls.length - 1 - reverseIndex];
+      lines.splice(lineIndex + 1, 0, "", `![](${imageUrl})`, "");
+    });
+
+    return lines.join("\n");
+  };
+
+  const generateArticleIllustrations = async ({
+    articleMd,
+    title,
+    count,
+    authToken: currentToken,
+  }: {
+    articleMd: string;
+    title: string;
+    count: number;
+    authToken: string;
+  }) => {
+    const prompts = buildIllustrationPrompts(articleMd, title, count);
+    const results = await Promise.all(
+      prompts.map((prompt) =>
+        generateImage({
+          prompt,
+          size: "1024x1024",
+          quality: "standard",
+          n: 1,
+          authToken: currentToken,
+          baseUrl: CONTENT_BACKEND_BASE_URL,
+        }),
+      ),
+    );
+
+    return results
+      .flatMap((result) => result.images)
+      .map((item) => item.url || (item.b64_json ? `data:image/png;base64,${item.b64_json}` : ""))
+      .filter(Boolean);
+  };
+
+  const handleAuthSubmit = async () => {
+    if (!authForm.email.trim() || !authForm.password.trim()) {
+      message.warning("请输入邮箱和密码");
+      return;
+    }
+
+    if (authMode === "register" && !authForm.displayName.trim()) {
+      message.warning("请输入昵称");
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      if (authMode === "register") {
+        await registerAccount(MEMBER_BACKEND_BASE_URL, {
+          email: authForm.email.trim(),
+          password: authForm.password,
+          displayName: authForm.displayName.trim(),
+        });
+        message.success("注册成功，请直接登录");
+        setAuthMode("login");
+        return;
+      }
+
+      const result: AuthSession = await loginAccount(MEMBER_BACKEND_BASE_URL, {
+        email: authForm.email.trim(),
+        password: authForm.password,
+      });
+
+      setAuthToken(result.token);
+      setCurrentUser(result.user);
+      await refreshCurrentUser(result.token);
+      message.success("登录成功");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "登录失败");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setAuthToken("");
+    setCurrentUser(null);
+    setMembership(null);
+    setAuthForm((current) => ({ ...current, password: "" }));
+    message.success("已退出登录");
+  };
+
+  const handleCheckout = async (planCode: string) => {
+    if (!authToken) {
+      message.warning("请先登录");
+      return;
+    }
+
+    setCheckoutLoading(planCode);
+    try {
+      const result = await checkoutMembership(MEMBER_BACKEND_BASE_URL, authToken, planCode);
+      setMembership(result.membership);
+      message.success(`开通成功，订单号 ${result.order.orderNo}`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "开通失败");
+    } finally {
+      setCheckoutLoading("");
+    }
   };
 
   const openCreateAccountDialog = () => {
@@ -227,9 +442,7 @@ function InnerApp() {
       setActiveAccountId(payload.id);
       message.success("已新增公众号账号");
     } else {
-      setAccounts((current) =>
-        current.map((account) => (account.id === payload.id ? payload : account)),
-      );
+      setAccounts((current) => current.map((account) => (account.id === payload.id ? payload : account)));
       setActiveAccountId(payload.id);
       message.success("已更新公众号账号");
     }
@@ -251,9 +464,8 @@ function InnerApp() {
 
   const resetPromptTemplate = () => {
     if (!activePrompt) return;
-    // 从代码里取最新默认值，而不是用 localStorage 里可能已过时的 defaultContent
     const freshDefaults = defaultPromptSlots();
-    const matched = freshDefaults.find((s) => s.defaultName === activePrompt.defaultName) ?? freshDefaults[0];
+    const matched = freshDefaults.find((slot) => slot.defaultName === activePrompt.defaultName) ?? freshDefaults[0];
     updateActivePrompt({
       name: matched.defaultName,
       content: matched.defaultContent,
@@ -296,9 +508,10 @@ function InnerApp() {
       message.warning("封面图大小不能超过 1MB");
       return;
     }
+
     setIsUploadingCover(true);
     try {
-      const result = await uploadWechatThumb(BACKEND_BASE_URL, file, {
+      const result = await uploadWechatThumb(CONTENT_BACKEND_BASE_URL, file, {
         appId: uploadTarget.appId,
         appSecret: uploadTarget.appSecret,
       });
@@ -330,12 +543,17 @@ function InnerApp() {
         return;
       }
     }
+
+    if ((articleDraft.imageCount ?? 0) > 0 && !membership?.isActive) {
+      message.warning("当前账号未开通会员，本次只生成文章内容，不生成配图");
+    }
+
     setIsGenerating(true);
     setResultMarkdown("");
     setDraftMeta((current) => ({ ...current, title: "", digest: "" }));
     try {
       const result = await generateArticle(
-        BACKEND_BASE_URL,
+        CONTENT_BACKEND_BASE_URL,
         {
           ...articleDraft,
           systemPrompt: articleDraft.systemPrompt.trim() || activePrompt?.content || "",
@@ -346,12 +564,34 @@ function InnerApp() {
       );
       const title = extractTitleFromMarkdown(result.articleMd, articleDraft.topic);
       const digest = summarizeMarkdown(result.articleMd);
+      let finalMarkdown = result.articleMd;
+
+      if ((articleDraft.imageCount ?? 0) > 0 && membership?.isActive) {
+        setIsGeneratingImages(true);
+        try {
+          const imageUrls = await generateArticleIllustrations({
+            articleMd: result.articleMd,
+            title,
+            count: articleDraft.imageCount ?? 0,
+            authToken,
+          });
+          finalMarkdown = mergeArticleWithImages(result.articleMd, imageUrls);
+          setResultMarkdown(finalMarkdown);
+        } finally {
+          setIsGeneratingImages(false);
+        }
+      }
+
       setDraftMeta((current) => ({
         title: current.title || title,
         author: current.author || activeAccount?.name || "",
         digest: current.digest || digest,
       }));
-      message.success("文章生成完成");
+      message.success(
+        (articleDraft.imageCount ?? 0) > 0 && membership?.isActive
+          ? "文章和配图生成完成"
+          : "文章生成完成",
+      );
     } catch (error) {
       message.error(error instanceof Error ? error.message : "文章生成失败");
     } finally {
@@ -376,14 +616,16 @@ function InnerApp() {
       message.warning("请先上传封面图或填写 thumb_media_id");
       return;
     }
+
     const title = draftMeta.title.trim() || extractTitleFromMarkdown(resultMarkdown, articleDraft.topic);
     if (!title) {
       message.warning("请先补充文章标题");
       return;
     }
+
     setIsSendingDraft(true);
     try {
-      const result = await sendWechatDraft(BACKEND_BASE_URL, {
+      const result = await sendWechatDraft(CONTENT_BACKEND_BASE_URL, {
         title,
         author: draftMeta.author.trim() || activeAccount.name,
         digest: draftMeta.digest.trim(),
@@ -417,12 +659,16 @@ function InnerApp() {
 
   const renderHeaderTitle = () => {
     switch (activeView) {
+      case "membership":
+        return "会员中心";
       case "account":
         return "账号配置";
       case "prompt":
         return "提示词模板";
       case "model":
         return "模型设置";
+      case "image":
+        return "AI 图片生成";
       case "settings":
         return "应用设置";
       default:
@@ -430,11 +676,30 @@ function InnerApp() {
     }
   };
 
+  if (!authReady) {
+    return <div className="auth-loading-screen">正在加载账号状态...</div>;
+  }
+
+  if (!currentUser) {
+    return (
+      <LoginPage
+        mode={authMode}
+        loading={authLoading}
+        form={authForm}
+        onModeChange={setAuthMode}
+        onFieldChange={(key, value) => setAuthForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={() => void handleAuthSubmit()}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       <Sidebar
         activeView={activeView}
         serviceStatus={serviceStatus}
+        currentUser={currentUser}
+        membership={membership}
         accounts={accounts}
         activeAccountId={activeAccountId}
         activeAccount={activeAccount}
@@ -442,34 +707,39 @@ function InnerApp() {
         onAccountChange={setActiveAccountId}
         onAddAccount={openCreateAccountDialog}
         onEditAccount={openEditAccountDialog}
+        onLogout={handleLogout}
       />
 
       <div className="main-wrapper">
         <header className="header">
-          <div className="header-title">
-            {renderHeaderTitle()}
-          </div>
-          {activeView === "workspace" ? (
-            <Space>
-              <Button
-                icon={<SendOutlined />}
-                onClick={handleSendDraft}
-                loading={isSendingDraft}
-                disabled={isGenerating}
-              >
-                {isSendingDraft ? "发送中..." : "发送到草稿箱"}
-              </Button>
-              <Button
-                type="primary"
-                icon={<RocketOutlined />}
-                onClick={handleGenerateArticle}
-                loading={isGenerating}
-                disabled={isSendingDraft}
-              >
-                {isGenerating ? "生成中..." : "生成文章"}
-              </Button>
-            </Space>
-          ) : null}
+          <div className="header-title">{renderHeaderTitle()}</div>
+          <Space>
+            <Tag color={membership?.isActive ? "success" : "default"} className="header-membership-tag">
+              {membership?.isActive ? (membership.plan.isLifetime ? "终生会员" : "月付会员") : "未开通会员"}
+            </Tag>
+            <span className="header-user-pill">{currentUser.displayName}</span>
+            {activeView === "workspace" ? (
+              <>
+                <Button
+                  icon={<SendOutlined />}
+                  onClick={handleSendDraft}
+                  loading={isSendingDraft}
+                  disabled={isGenerating}
+                >
+                  {isSendingDraft ? "发送中..." : "发送到草稿箱"}
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<RocketOutlined />}
+                  onClick={handleGenerateArticle}
+                  loading={isGenerating}
+                  disabled={isSendingDraft}
+                >
+                  {isGenerating ? "生成中..." : "生成文章"}
+                </Button>
+              </>
+            ) : null}
+          </Space>
         </header>
 
         {activeView === "workspace" ? (
@@ -482,7 +752,9 @@ function InnerApp() {
             resultMarkdown={resultMarkdown}
             settingsCollapsed={settingsCollapsed}
             isGenerating={isGenerating}
+            isGeneratingImages={isGeneratingImages}
             isSendingDraft={isSendingDraft}
+            imageCountOptions={imageCountOptions}
             lengthOptions={lengthOptions}
             modeOptions={modeOptions}
             expressionModeOptions={expressionModeOptions}
@@ -497,6 +769,17 @@ function InnerApp() {
             onSourceFilePick={() => sourceFileInputRef.current?.click()}
             onCopyMarkdown={handleCopyMarkdown}
             onClearResult={handleClearResult}
+            onPreview={() => setPreviewOpen(true)}
+          />
+        ) : null}
+
+        {activeView === "membership" ? (
+          <MembershipPage
+            plans={plans}
+            membership={membership}
+            loading={!!checkoutLoading}
+            activePlanCode={checkoutLoading}
+            onCheckout={(planCode) => void handleCheckout(planCode)}
           />
         ) : null}
 
@@ -528,13 +811,25 @@ function InnerApp() {
         ) : null}
 
         {activeView === "model" ? (
-          <ModelPage articleDraft={articleDraft} onArticleFieldChange={setArticleField} />
+          <ModelPage
+            authToken={authToken || ""}
+            baseUrl={MEMBER_BACKEND_BASE_URL}
+            membership={membership}
+          />
+        ) : null}
+
+        {activeView === "image" ? (
+          <ImagePage
+            membership={membership}
+            authToken={authToken || ""}
+            baseUrl={MEMBER_BACKEND_BASE_URL}
+          />
         ) : null}
 
         {activeView === "settings" ? (
           <PlaceholderPage
             title="应用设置"
-            description="当前版本服务地址已固定为线上服务，后续可以继续补充更多偏好设置。"
+            description="当前版本先聚焦创作与会员能力，后续可以继续补充更多个人偏好设置。"
           />
         ) : null}
 
@@ -547,8 +842,8 @@ function InnerApp() {
             <span>最近保存：{lastSaveTime || "刚刚"}</span>
           </div>
           <div className="footer-right">
-            <span className="footer-tip-dot">·</span>
-            支持直接发送到公众号草稿箱，减少复制粘贴
+            <span className="footer-tip-dot">•</span>
+            支持直接发送到公众号草稿箱，减少来回复制粘贴
           </div>
         </footer>
       </div>
@@ -566,6 +861,14 @@ function InnerApp() {
         accept="image/png,image/jpeg,image/jpg"
         style={{ display: "none" }}
         onChange={handleCoverUpload}
+      />
+
+      <WechatPreviewModal
+        open={previewOpen}
+        title={draftMeta.title || extractTitleFromMarkdown(resultMarkdown, articleDraft.topic)}
+        accountName={activeAccount?.name || ""}
+        markdown={resultMarkdown}
+        onClose={() => setPreviewOpen(false)}
       />
 
       <Modal

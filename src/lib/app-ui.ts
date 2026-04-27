@@ -9,7 +9,7 @@ import type {
   WritingMode,
 } from "./types";
 
-export type SidebarView = "workspace" | "account" | "model" | "prompt" | "settings";
+export type SidebarView = "workspace" | "membership" | "account" | "model" | "prompt" | "image" | "settings";
 
 export type PromptSlot = {
   id: string;
@@ -265,6 +265,7 @@ export function defaultArticleDraft(): GeneratePayload {
     audience: "大学生",
     style: "专业理性",
     length: "medium",
+    imageCount: 0,
     mode: "standard",
     systemPrompt: "",
     creationMode: "original",
@@ -295,6 +296,14 @@ export const modeOptions: Array<{ label: string; value: WritingMode }> = [
   { label: "案例拆解", value: "case_study" },
   { label: "清单型", value: "listicle" },
   { label: "分析型", value: "analysis" },
+];
+
+export const imageCountOptions = [
+  { label: "不生成配图", value: 0 },
+  { label: "1 张配图", value: 1 },
+  { label: "2 张配图", value: 2 },
+  { label: "3 张配图", value: 3 },
+  { label: "4 张配图", value: 4 },
 ];
 
 export const expressionModeOptions: Array<{ label: string; value: ExpressionMode }> = [

@@ -4,6 +4,8 @@ import {
   BulbOutlined,
   CheckCircleFilled,
   EditOutlined,
+  LockOutlined,
+  PictureOutlined,
   PlusOutlined,
   RobotOutlined,
   SettingOutlined,
@@ -11,11 +13,13 @@ import {
 } from "@ant-design/icons";
 import type { SidebarView } from "../lib/app-ui";
 import { maskValue } from "../lib/app-ui";
-import type { WechatAccount } from "../lib/types";
+import type { AuthUser, UserMembership, WechatAccount } from "../lib/types";
 
 type Props = {
   activeView: SidebarView;
   serviceStatus: string;
+  currentUser: AuthUser;
+  membership: UserMembership | null;
   accounts: WechatAccount[];
   activeAccountId: string;
   activeAccount?: WechatAccount;
@@ -23,11 +27,14 @@ type Props = {
   onAccountChange: (id: string) => void;
   onAddAccount: () => void;
   onEditAccount: () => void;
+  onLogout: () => void;
 };
 
 export function Sidebar({
   activeView,
   serviceStatus,
+  currentUser,
+  membership,
   accounts,
   activeAccountId,
   activeAccount,
@@ -35,7 +42,14 @@ export function Sidebar({
   onAccountChange,
   onAddAccount,
   onEditAccount,
+  onLogout,
 }: Props) {
+  const membershipLabel = membership?.isActive
+    ? membership.plan.isLifetime
+      ? "终生会员"
+      : "月付会员"
+    : "未开通会员";
+
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -52,8 +66,8 @@ export function Sidebar({
           </svg>
         </div>
         <div className="brand-name">
-          <span className="main">文栈</span>
-          <span className="sub">公众号创作台</span>
+          <span className="main">文爪</span>
+          <span className="sub">桌面创作台</span>
         </div>
       </div>
 
@@ -90,14 +104,23 @@ export function Sidebar({
           <AppstoreOutlined />
           <span>工作台</span>
         </button>
+        <button className={`nav-item${activeView === "membership" ? " active" : ""}`} onClick={() => onViewChange("membership")}>
+          <LockOutlined />
+          <span>会员中心</span>
+        </button>
         <button className={`nav-item${activeView === "account" ? " active" : ""}`} onClick={() => onViewChange("account")}>
           <UserOutlined />
           <span>账号</span>
         </button>
-        <button className={`nav-item${activeView === "model" ? " active" : ""}`} onClick={() => onViewChange("model")}>
+        {/* <button className={`nav-item${activeView === "model" ? " active" : ""}`} onClick={() => onViewChange("model")}>
           <RobotOutlined />
           <span>模型</span>
-        </button>
+        </button> */}
+        {/* <button className={`nav-item${activeView === "image" ? " active" : ""}`} onClick={() => onViewChange("image")}>
+          <PictureOutlined />
+          <span>AI 图片</span>
+          {membership?.isActive && <span className="nav-item-badge">会员</span>}
+        </button> */}
         <button className={`nav-item${activeView === "prompt" ? " active" : ""}`} onClick={() => onViewChange("prompt")}>
           <BulbOutlined />
           <span>提示词</span>
@@ -110,21 +133,25 @@ export function Sidebar({
 
       <div className="sidebar-footer-card">
         <div className="footer-account-name">
-          {activeAccount?.name || "未命名账号"}
+          {currentUser.displayName || currentUser.email}
           <CheckCircleFilled style={{ color: "#22c55e", fontSize: 12, marginLeft: 4 }} />
         </div>
         <div className="footer-detail-row">
-          <span className="footer-detail-key">AppID</span>
-          <span className="footer-detail-val">{maskValue(activeAccount?.appId ?? "")}</span>
+          <span className="footer-detail-key">账号</span>
+          <span className="footer-detail-val">{maskValue(currentUser.email, 5, 8)}</span>
         </div>
         <div className="footer-detail-row">
-          <span className="footer-detail-key">封面 ID</span>
-          <span className="footer-detail-val">{maskValue(activeAccount?.thumbMediaId ?? "")}</span>
+          <span className="footer-detail-key">会员</span>
+          <span className="footer-detail-val">{membershipLabel}</span>
         </div>
         <div className="footer-thumb-status">
-          <div className={`footer-thumb-dot${activeAccount?.thumbMediaId ? " ok" : ""}`} />
-          <span>{activeAccount?.thumbMediaId ? "封面图已就绪" : "等待上传封面图"}</span>
+          <div className={`footer-thumb-dot${membership?.isActive ? " ok" : ""}`} />
+          <span>{membership?.isActive ? "会员权益已激活" : "可开通会员提升配额"}</span>
         </div>
+        <button className="sidebar-logout-btn" onClick={onLogout}>
+          退出登录
+        </button>
+        <div className="footer-mini-account">当前公众号：{activeAccount?.name || "未命名账号"}</div>
       </div>
     </aside>
   );
