@@ -38,7 +38,7 @@ export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, on
             <LockOutlined />
             <div>
               <strong>会员直达</strong>
-              <span>月付和终生会员都能在客户端内开通</span>
+              <span>会员套餐可直接在客户端内开通和管理</span>
             </div>
           </div>
         </div>
@@ -50,7 +50,7 @@ export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, on
             <div className="auth-title-block">
               <span className="auth-kicker">Secure Access</span>
               <h2>{mode === "login" ? "欢迎回来" : "创建你的账号"}</h2>
-              <p>{mode === "login" ? "继续进入你的创作工作台。" : "先注册，再开通月付或终生会员。"}</p>
+              <p>{mode === "login" ? "继续进入你的创作工作台。" : "先注册，再按自己的创作频率选择套餐。"}</p>
             </div>
             <Segmented
               value={mode}

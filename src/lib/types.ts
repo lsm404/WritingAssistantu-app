@@ -91,6 +91,19 @@ export interface UserMembership {
   plan: MembershipPlan;
 }
 
+export interface UsageQuotaItem {
+  limit: number;
+  used: number;
+  remaining: number;
+  periodKey: string;
+}
+
+export interface UserQuotaSummary {
+  source: string;
+  text: UsageQuotaItem;
+  image: UsageQuotaItem;
+}
+
 export interface AuthSession {
   token: string;
   expiresAt: string;
@@ -122,6 +135,7 @@ export interface GenerateResponse {
     mode: WritingMode;
     creationMode: "original" | "rewrite";
   };
+  quota?: UserQuotaSummary;
 }
 
 export interface DraftResponse {
@@ -160,6 +174,7 @@ export interface ImageGenerateResponse {
     quality: ImageQuality;
     n: number;
   };
+  quota?: UserQuotaSummary;
 }
 
 export interface ModelConfig {

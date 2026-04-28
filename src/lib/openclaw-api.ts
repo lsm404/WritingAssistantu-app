@@ -11,6 +11,7 @@ import type {
   MembershipPlan,
   ModelConfig,
   UploadThumbResponse,
+  UserQuotaSummary,
   UserMembership,
 } from "./types";
 
@@ -86,7 +87,12 @@ export async function loginAccount(
 export async function fetchCurrentUser(
   baseUrl: string,
   token: string,
-): Promise<{ user: AuthUser; membership: UserMembership | null; session: { expiresAt: string } }> {
+): Promise<{
+  user: AuthUser;
+  membership: UserMembership | null;
+  quota: UserQuotaSummary | null;
+  session: { expiresAt: string };
+}> {
   const response = await fetch(`${baseUrl}/v1/auth/me`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -100,6 +106,7 @@ export async function fetchCurrentUser(
   return (await response.json()) as {
     user: AuthUser;
     membership: UserMembership | null;
+    quota: UserQuotaSummary | null;
     session: { expiresAt: string };
   };
 }
@@ -387,6 +394,7 @@ async function parseError(response: Response): Promise<never> {
 
 export async function generateArticle(
   baseUrl: string,
+  token: string,
   payload: GeneratePayload,
   onChunk?: (delta: string) => void,
 ): Promise<GenerateResponse> {
@@ -394,6 +402,7 @@ export async function generateArticle(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(buildGeneratePayload(payload)),
   });
@@ -411,6 +420,7 @@ export async function generateArticle(
       mode: GeneratePayload["mode"];
       creation_mode: GeneratePayload["creationMode"];
     };
+    quota?: UserQuotaSummary;
   };
 
   if (onChunk && data.article_md) {
@@ -426,6 +436,7 @@ export async function generateArticle(
       mode: data.meta.mode,
       creationMode: data.meta.creation_mode,
     },
+    quota: data.quota,
   };
 }
 
@@ -532,6 +543,7 @@ export async function generateImage(payload: ImageGeneratePayload): Promise<Imag
     meta?: {
       model?: string;
     };
+    quota?: UserQuotaSummary;
   };
 
   return {
@@ -543,6 +555,7 @@ export async function generateImage(payload: ImageGeneratePayload): Promise<Imag
       quality: payload.quality,
       n: payload.n,
     },
+    quota: data.quota,
   };
 }
 

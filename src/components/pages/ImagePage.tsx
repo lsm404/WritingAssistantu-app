@@ -4,18 +4,27 @@ import {
   CopyOutlined,
   CrownOutlined,
   DownloadOutlined,
-  LockOutlined,
   PictureOutlined,
   RocketOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 import { fetchModelConfig, generateImage } from "../../lib/openclaw-api";
-import type { ImageGeneratePayload, ImageQuality, ImageSize, ModelConfig, UserMembership } from "../../lib/types";
+import type {
+  ImageGeneratePayload,
+  ImageQuality,
+  ImageSize,
+  ModelConfig,
+  UserMembership,
+  UserQuotaSummary,
+} from "../../lib/types";
 
 type Props = {
   membership: UserMembership | null;
+  quota: UserQuotaSummary | null;
   authToken: string;
   baseUrl: string;
+  onQuotaChange?: (quota?: UserQuotaSummary | null) => void;
+  onRefreshMembership?: () => Promise<void> | void;
 };
 
 const imageSizes: Array<{ value: ImageSize; label: string; ratio: string }> = [
@@ -25,11 +34,27 @@ const imageSizes: Array<{ value: ImageSize; label: string; ratio: string }> = [
 ];
 
 const imageQualities: Array<{ value: ImageQuality; label: string; desc: string }> = [
-  { value: "standard", label: "标准", desc: "生成更快" },
-  { value: "hd", label: "高清", desc: "画质更好" },
+  { value: "standard", label: "标准", desc: "速度更快" },
+  { value: "hd", label: "高清", desc: "细节更好" },
 ];
 
-export function ImagePage({ membership, authToken, baseUrl }: Props) {
+function getFriendlyImageError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "图片生成失败";
+  }
+
+  if (error.message === "IMAGE_QUOTA_EXCEEDED") {
+    return "本月图片额度已用完，下月会自动恢复，也可以升级套餐继续使用。";
+  }
+
+  if (error.message === "UNAUTHORIZED") {
+    return "登录状态已失效，请重新登录后再试。";
+  }
+
+  return error.message || "图片生成失败";
+}
+
+export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange, onRefreshMembership }: Props) {
   const { message } = AntApp.useApp();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -53,7 +78,9 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
   });
 
   const isVipUser = membership?.isActive === true;
-  const textConfigReady = modelConfig.textApiKey.trim() && modelConfig.textModel.trim();
+  const textConfigReady = Boolean(modelConfig.textApiKey.trim() && modelConfig.textModel.trim());
+  const imageQuotaText = quota ? `${quota.image.used} / ${quota.image.limit}` : "-- / --";
+  const textQuotaText = quota ? `${quota.text.used} / ${quota.text.limit}` : "-- / --";
 
   useEffect(() => {
     void loadModelConfig();
@@ -72,18 +99,13 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
   };
 
   const handleGenerate = async () => {
-    if (!isVipUser) {
-      message.warning("图片生成是会员专属功能，请先开通会员");
-      return;
-    }
-
     if (!prompt.trim()) {
       message.warning("请输入图片描述");
       return;
     }
 
     if (!textConfigReady) {
-      message.warning("请先完成文本模型配置并登录账号");
+      message.warning("请先完成模型配置后再生成图片");
       return;
     }
 
@@ -100,6 +122,9 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
       };
 
       const result = await generateImage(payload);
+      onQuotaChange?.(result.quota);
+      await onRefreshMembership?.();
+
       if (result.images.length > 0) {
         const timestamp = Date.now();
         const newImages = result.images.map((img, index) => ({
@@ -113,7 +138,8 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
         message.error("图片生成失败，未返回有效图片");
       }
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "图片生成失败");
+      await onRefreshMembership?.();
+      message.error(getFriendlyImageError(error));
     } finally {
       setGenerating(false);
     }
@@ -133,7 +159,7 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
     link.href = imageUrl;
     link.download = `openclaw-image-${Date.now()}.png`;
     link.click();
-    message.success("图片下载已开始");
+    message.success("图片开始下载");
   };
 
   if (loading) {
@@ -150,17 +176,19 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
   return (
     <div style={{ padding: "20px 24px", maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
           <PictureOutlined style={{ fontSize: 24, color: "#6366f1" }} />
           <Typography.Title level={2} style={{ margin: 0 }}>
             AI 图片生成
           </Typography.Title>
-          <Tag color={isVipUser ? "gold" : "default"} icon={isVipUser ? <CrownOutlined /> : <LockOutlined />}>
-            {isVipUser ? "会员功能" : "需要会员"}
+          <Tag color={isVipUser ? "gold" : "processing"} icon={<CrownOutlined />}>
+            {isVipUser ? "会员额度" : "免费体验"}
           </Tag>
+          <Tag color="blue">本月图片 {imageQuotaText}</Tag>
+          <Tag color="geekblue">今日文字 {textQuotaText}</Tag>
         </div>
         <Typography.Text type="secondary">
-          图片模型参数由服务端环境变量统一管理，客户端只负责输入提示词并发起生成。
+          图片按月额度扣减，文字创作按天额度扣减。图片额度用完后，你仍然可以继续使用文字能力。
         </Typography.Text>
       </div>
 
@@ -175,7 +203,7 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
                 placeholder="例如：奶油质感的猫咪咖啡馆，午后暖阳，电影感构图"
                 rows={4}
                 style={{ marginTop: 8 }}
-                disabled={!isVipUser}
+                disabled={generating}
               />
             </div>
 
@@ -187,7 +215,7 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
                 placeholder="例如：模糊、低质量、畸形手部、水印"
                 rows={2}
                 style={{ marginTop: 8 }}
-                disabled={!isVipUser}
+                disabled={generating}
               />
             </div>
 
@@ -199,7 +227,7 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
                     key={sizeOption.value}
                     type={size === sizeOption.value ? "primary" : "default"}
                     onClick={() => setSize(sizeOption.value)}
-                    disabled={!isVipUser}
+                    disabled={generating}
                     style={{ flex: 1 }}
                   >
                     <div>
@@ -219,7 +247,7 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
                     key={qualityOption.value}
                     type={quality === qualityOption.value ? "primary" : "default"}
                     onClick={() => setQuality(qualityOption.value)}
-                    disabled={!isVipUser}
+                    disabled={generating}
                     style={{ flex: 1 }}
                   >
                     <div>
@@ -240,7 +268,7 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
                 onChange={setImageCount}
                 marks={{ 1: "1", 2: "2", 3: "3", 4: "4" }}
                 style={{ marginTop: 8 }}
-                disabled={!isVipUser}
+                disabled={generating}
               />
             </div>
 
@@ -250,14 +278,13 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
               icon={<RocketOutlined />}
               loading={generating}
               onClick={handleGenerate}
-              disabled={!isVipUser}
               block
               style={{ marginTop: 16 }}
             >
-              {generating ? "生成中..." : isVipUser ? "生成图片" : "开通会员后可用"}
+              {generating ? "生成中..." : "生成图片"}
             </Button>
 
-            {isVipUser && !textConfigReady ? (
+            {!textConfigReady ? (
               <div
                 style={{
                   padding: 12,
@@ -270,7 +297,7 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <SettingOutlined style={{ color: "#fa8c16" }} />
                   <Typography.Text style={{ fontSize: 13, color: "#d46b08" }}>
-                    请先到“模型设置”完成文本模型配置，图片模型由服务端统一提供
+                    请先到“模型设置”中完成文本模型配置，图片模型由服务端统一提供。
                   </Typography.Text>
                 </div>
               </div>
@@ -283,12 +310,10 @@ export function ImagePage({ membership, authToken, baseUrl }: Props) {
             <Card style={{ textAlign: "center", padding: "60px 20px" }}>
               <PictureOutlined style={{ fontSize: 64, color: "#d1d5db", marginBottom: 16 }} />
               <Typography.Title level={4} type="secondary">
-                {isVipUser ? "生成结果会显示在这里" : "开通会员后可解锁图片配置与图片生成"}
+                生成结果会显示在这里
               </Typography.Title>
               <Typography.Text type="secondary">
-                {isVipUser
-                  ? "会员可直接使用服务端预设的图片模型进行生成。"
-                  : "AI 图片生成功能仅对会员开放。"}
+                当前支持免费体验和会员额度两种模式，系统会自动按你的剩余额度进行扣减。
               </Typography.Text>
             </Card>
           ) : (

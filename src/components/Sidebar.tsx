@@ -5,21 +5,20 @@ import {
   CheckCircleFilled,
   EditOutlined,
   LockOutlined,
-  PictureOutlined,
   PlusOutlined,
-  RobotOutlined,
   SettingOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import type { SidebarView } from "../lib/app-ui";
 import { maskValue } from "../lib/app-ui";
-import type { AuthUser, UserMembership, WechatAccount } from "../lib/types";
+import type { AuthUser, UserMembership, UserQuotaSummary, WechatAccount } from "../lib/types";
 
 type Props = {
   activeView: SidebarView;
   serviceStatus: string;
   currentUser: AuthUser;
   membership: UserMembership | null;
+  quota: UserQuotaSummary | null;
   accounts: WechatAccount[];
   activeAccountId: string;
   activeAccount?: WechatAccount;
@@ -30,11 +29,34 @@ type Props = {
   onLogout: () => void;
 };
 
+const quotaMap: Record<string, { textDaily: number; imageMonthly: number }> = {
+  monthly_199: { textDaily: 5, imageMonthly: 15 },
+  monthly_399: { textDaily: 10, imageMonthly: 35 },
+  monthly_599: { textDaily: 15, imageMonthly: 50 },
+  monthly_990: { textDaily: 25, imageMonthly: 90 },
+};
+
+function getMembershipToneClass(planCode?: string | null) {
+  switch (planCode) {
+    case "monthly_199":
+      return "plan-tone-sun";
+    case "monthly_399":
+      return "plan-tone-sky";
+    case "monthly_599":
+      return "plan-tone-orange";
+    case "monthly_990":
+      return "plan-tone-purple";
+    default:
+      return "plan-tone-default";
+  }
+}
+
 export function Sidebar({
   activeView,
   serviceStatus,
   currentUser,
   membership,
+  quota,
   accounts,
   activeAccountId,
   activeAccount,
@@ -44,11 +66,21 @@ export function Sidebar({
   onEditAccount,
   onLogout,
 }: Props) {
-  const membershipLabel = membership?.isActive
-    ? membership.plan.isLifetime
-      ? "终生会员"
-      : "月付会员"
-    : "未开通会员";
+  const membershipLabel = membership?.isActive ? membership.plan.name : "未开通会员";
+  const membershipToneClass = getMembershipToneClass(membership?.plan?.code);
+  const defaultQuota = membership?.isActive
+    ? membership.plan?.code
+      ? quotaMap[membership.plan.code] ?? null
+      : null
+    : { textDaily: 3, imageMonthly: 3 };
+  const textLimit = quota?.text.limit ?? defaultQuota?.textDaily ?? 0;
+  const imageLimit = quota?.image.limit ?? defaultQuota?.imageMonthly ?? 0;
+  const textUsed = quota?.text.used ?? 0;
+  const imageUsed = quota?.image.used ?? 0;
+  const textProgress = textLimit > 0 ? Math.min(100, (textUsed / textLimit) * 100) : 0;
+  const imageProgress = imageLimit > 0
+    ? Math.min(100, (imageUsed / imageLimit) * 100)
+    : 0;
 
   return (
     <aside className="sidebar">
@@ -69,11 +101,6 @@ export function Sidebar({
           <span className="main">文爪</span>
           <span className="sub">桌面创作台</span>
         </div>
-      </div>
-
-      <div className={`service-status ${serviceStatus === "服务正常" ? "ok" : "warn"}`}>
-        <div className="status-dot" />
-        <span>{serviceStatus}</span>
       </div>
 
       <div className="account-section">
@@ -112,15 +139,6 @@ export function Sidebar({
           <UserOutlined />
           <span>账号</span>
         </button>
-        {/* <button className={`nav-item${activeView === "model" ? " active" : ""}`} onClick={() => onViewChange("model")}>
-          <RobotOutlined />
-          <span>模型</span>
-        </button> */}
-        {/* <button className={`nav-item${activeView === "image" ? " active" : ""}`} onClick={() => onViewChange("image")}>
-          <PictureOutlined />
-          <span>AI 图片</span>
-          {membership?.isActive && <span className="nav-item-badge">会员</span>}
-        </button> */}
         <button className={`nav-item${activeView === "prompt" ? " active" : ""}`} onClick={() => onViewChange("prompt")}>
           <BulbOutlined />
           <span>提示词</span>
@@ -142,12 +160,40 @@ export function Sidebar({
         </div>
         <div className="footer-detail-row">
           <span className="footer-detail-key">会员</span>
-          <span className="footer-detail-val">{membershipLabel}</span>
+          <span className={`footer-detail-val footer-membership-pill ${membershipToneClass}`}>{membershipLabel}</span>
         </div>
         <div className="footer-thumb-status">
           <div className={`footer-thumb-dot${membership?.isActive ? " ok" : ""}`} />
-          <span>{membership?.isActive ? "会员权益已激活" : "可开通会员提升配额"}</span>
+          <span>{membership?.isActive ? "会员权益已激活" : "开通会员后可查看额度使用情况"}</span>
         </div>
+
+        <div className="footer-quota-card">
+          <div className="footer-quota-head">
+            <span>额度消耗</span>
+            <span className="footer-quota-note">{membership?.isActive ? "按当前套餐" : "免费体验"}</span>
+          </div>
+
+          <div className="footer-quota-item">
+            <div className="footer-quota-row">
+              <span>今日文字</span>
+              <strong>{textLimit > 0 ? `${textUsed} / ${textLimit}` : "-- / --"}</strong>
+            </div>
+            <div className="footer-quota-bar">
+              <div className="footer-quota-fill text" style={{ width: `${textProgress}%` }} />
+            </div>
+          </div>
+
+          <div className="footer-quota-item">
+            <div className="footer-quota-row">
+              <span>本月图片</span>
+              <strong>{imageLimit > 0 ? `${imageUsed} / ${imageLimit}` : "-- / --"}</strong>
+            </div>
+            <div className="footer-quota-bar">
+              <div className="footer-quota-fill image" style={{ width: `${imageProgress}%` }} />
+            </div>
+          </div>
+        </div>
+
         <button className="sidebar-logout-btn" onClick={onLogout}>
           退出登录
         </button>

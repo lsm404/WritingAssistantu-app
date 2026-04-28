@@ -6,7 +6,6 @@ import { App as AntApp, Button, ConfigProvider, Input, Modal, Space, Tag } from 
 import { CheckCircleFilled, CloudUploadOutlined, RocketOutlined, SendOutlined } from "@ant-design/icons";
 import {
   backendHealthcheck,
-  checkoutMembership,
   fetchCurrentUser,
   fetchMembershipPlans,
   generateArticle,
@@ -24,6 +23,7 @@ import type {
   MembershipPlan,
   RuntimeInfo,
   UserMembership,
+  UserQuotaSummary,
   WechatAccount,
 } from "./lib/types";
 import {
@@ -73,8 +73,23 @@ const storageKeys = {
   draftMeta: "openclaw.draftMeta",
 } as const;
 
+function getMembershipToneClass(planCode?: string | null) {
+  switch (planCode) {
+    case "monthly_199":
+      return "plan-tone-sun";
+    case "monthly_399":
+      return "plan-tone-sky";
+    case "monthly_599":
+      return "plan-tone-orange";
+    case "monthly_990":
+      return "plan-tone-purple";
+    default:
+      return "plan-tone-default";
+  }
+}
+
 function InnerApp() {
-  const { message } = AntApp.useApp();
+  const { message, modal } = AntApp.useApp();
   const sourceFileInputRef = useRef<HTMLInputElement | null>(null);
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -85,6 +100,7 @@ function InnerApp() {
   const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(storageKeys.authToken) || "");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [membership, setMembership] = useState<UserMembership | null>(null);
+  const [quota, setQuota] = useState<UserQuotaSummary | null>(null);
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [checkoutLoading, setCheckoutLoading] = useState("");
   const [activeView, setActiveView] = useState<SidebarView>("workspace");
@@ -149,12 +165,14 @@ function InnerApp() {
         setAuthToken(token);
         setCurrentUser(result.user);
         setMembership(result.membership);
+        setQuota(result.quota);
       })
       .catch(() => {
         window.localStorage.removeItem(storageKeys.authToken);
         setAuthToken("");
         setCurrentUser(null);
         setMembership(null);
+        setQuota(null);
       })
       .finally(() => setAuthReady(true));
   }, []);
@@ -203,9 +221,28 @@ function InnerApp() {
     }
   }, [authToken]);
 
+  useEffect(() => {
+    if (!authToken || !currentUser || activeView !== "membership") {
+      return;
+    }
+
+    void refreshCurrentUser(authToken).catch(() => undefined);
+
+    const handleFocusRefresh = () => {
+      void refreshCurrentUser(authToken).catch(() => undefined);
+    };
+
+    window.addEventListener("focus", handleFocusRefresh);
+    return () => window.removeEventListener("focus", handleFocusRefresh);
+  }, [activeView, authToken, currentUser]);
+
   const activeAccount = useMemo(
     () => accounts.find((account) => account.id === activeAccountId) ?? accounts[0],
     [accounts, activeAccountId],
+  );
+  const membershipToneClass = useMemo(
+    () => getMembershipToneClass(membership?.plan?.code),
+    [membership?.plan?.code],
   );
 
   const activePrompt = useMemo(
@@ -259,6 +296,33 @@ function InnerApp() {
     const result = await fetchCurrentUser(MEMBER_BACKEND_BASE_URL, token);
     setCurrentUser(result.user);
     setMembership(result.membership);
+    setQuota(result.quota);
+  };
+
+  const applyQuotaFromResponse = (nextQuota?: UserQuotaSummary | null) => {
+    if (nextQuota) {
+      setQuota(nextQuota);
+    }
+  };
+
+  const getFriendlyQuotaError = (error: unknown) => {
+    if (!(error instanceof Error)) {
+      return null;
+    }
+
+    if (error.message === "TEXT_QUOTA_EXCEEDED") {
+      return "今日文字创作额度已用完，明天会自动恢复，也可以开通更高套餐。";
+    }
+
+    if (error.message === "IMAGE_QUOTA_EXCEEDED") {
+      return "本月图片额度已用完，下月会自动恢复，也可以升级套餐继续使用。";
+    }
+
+    if (error.message === "UNAUTHORIZED") {
+      return "登录状态已失效，请重新登录后再试。";
+    }
+
+    return null;
   };
 
   const buildIllustrationPrompts = (articleMd: string, title: string, count: number) => {
@@ -378,6 +442,7 @@ function InnerApp() {
     setAuthToken("");
     setCurrentUser(null);
     setMembership(null);
+    setQuota(null);
     setAuthForm((current) => ({ ...current, password: "" }));
     message.success("已退出登录");
   };
@@ -388,16 +453,45 @@ function InnerApp() {
       return;
     }
 
-    setCheckoutLoading(planCode);
-    try {
-      const result = await checkoutMembership(MEMBER_BACKEND_BASE_URL, authToken, planCode);
-      setMembership(result.membership);
-      message.success(`开通成功，订单号 ${result.order.orderNo}`);
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : "开通失败");
-    } finally {
-      setCheckoutLoading("");
-    }
+    const targetPlan = plans.find((plan) => plan.code === planCode);
+    modal.info({
+      title: `开通${targetPlan?.name ?? "会员"}`,
+      okText: "我知道了",
+      content: (
+          <div style={{ lineHeight: 1.8, color: "#475467", paddingTop: 8 }}>
+          <div>当前版本暂不支持在线自助支付。</div>
+          <div style={{ marginTop: 6 }}>
+            如需开通会员，请联系微信：
+            <span
+              style={{
+                marginLeft: 6,
+                color: "#7c3aed",
+                fontWeight: 800,
+                letterSpacing: "0.02em",
+              }}
+            >
+              Jiale-8888888
+            </span>
+          </div>
+          <div style={{ marginTop: 6 }}>添加时建议备注：会员开通 + 当前登录邮箱，方便我们更快处理。</div>
+          <Button
+            size="small"
+            type="primary"
+            style={{ marginTop: 12 }}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText("Jiale-8888888");
+                message.success("微信号已复制");
+              } catch {
+                message.error("复制失败，请手动复制");
+              }
+            }}
+          >
+            复制微信号
+          </Button>
+        </div>
+      ),
+    });
   };
 
   const openCreateAccountDialog = () => {
@@ -544,8 +638,12 @@ function InnerApp() {
       }
     }
 
-    if ((articleDraft.imageCount ?? 0) > 0 && !membership?.isActive) {
+    if (false && (articleDraft.imageCount ?? 0) > 0 && !membership?.isActive) {
       message.warning("当前账号未开通会员，本次只生成文章内容，不生成配图");
+    }
+
+    if ((articleDraft.imageCount ?? 0) > 0 && !membership?.isActive) {
+      message.info("当前账号会优先使用免费图片额度，图片额度不足时会提示你开通会员。");
     }
 
     setIsGenerating(true);
@@ -554,6 +652,7 @@ function InnerApp() {
     try {
       const result = await generateArticle(
         CONTENT_BACKEND_BASE_URL,
+        authToken,
         {
           ...articleDraft,
           systemPrompt: articleDraft.systemPrompt.trim() || activePrompt?.content || "",
@@ -562,11 +661,12 @@ function InnerApp() {
           setResultMarkdown((prev) => prev + delta);
         },
       );
+      applyQuotaFromResponse(result.quota);
       const title = extractTitleFromMarkdown(result.articleMd, articleDraft.topic);
       const digest = summarizeMarkdown(result.articleMd);
       let finalMarkdown = result.articleMd;
 
-      if ((articleDraft.imageCount ?? 0) > 0 && membership?.isActive) {
+      if ((articleDraft.imageCount ?? 0) > 0) {
         setIsGeneratingImages(true);
         try {
           const imageUrls = await generateArticleIllustrations({
@@ -577,6 +677,7 @@ function InnerApp() {
           });
           finalMarkdown = mergeArticleWithImages(result.articleMd, imageUrls);
           setResultMarkdown(finalMarkdown);
+          await refreshCurrentUser(authToken);
         } finally {
           setIsGeneratingImages(false);
         }
@@ -588,12 +689,15 @@ function InnerApp() {
         digest: current.digest || digest,
       }));
       message.success(
-        (articleDraft.imageCount ?? 0) > 0 && membership?.isActive
+        (articleDraft.imageCount ?? 0) > 0
           ? "文章和配图生成完成"
           : "文章生成完成",
       );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "文章生成失败");
+      if (authToken) {
+        void refreshCurrentUser(authToken).catch(() => undefined);
+      }
+      message.error(getFriendlyQuotaError(error) ?? (error instanceof Error ? error.message : "文章生成失败"));
     } finally {
       setIsGenerating(false);
     }
@@ -700,6 +804,7 @@ function InnerApp() {
         serviceStatus={serviceStatus}
         currentUser={currentUser}
         membership={membership}
+        quota={quota}
         accounts={accounts}
         activeAccountId={activeAccountId}
         activeAccount={activeAccount}
@@ -714,8 +819,11 @@ function InnerApp() {
         <header className="header">
           <div className="header-title">{renderHeaderTitle()}</div>
           <Space>
-            <Tag color={membership?.isActive ? "success" : "default"} className="header-membership-tag">
-              {membership?.isActive ? (membership.plan.isLifetime ? "终生会员" : "月付会员") : "未开通会员"}
+            <Tag
+              color="default"
+              className={`header-membership-tag ${membershipToneClass}`}
+            >
+              {membership?.isActive ? membership.plan.name : "未开通会员"}
             </Tag>
             <span className="header-user-pill">{currentUser.displayName}</span>
             {activeView === "workspace" ? (
@@ -821,8 +929,11 @@ function InnerApp() {
         {activeView === "image" ? (
           <ImagePage
             membership={membership}
+            quota={quota}
             authToken={authToken || ""}
             baseUrl={MEMBER_BACKEND_BASE_URL}
+            onQuotaChange={applyQuotaFromResponse}
+            onRefreshMembership={() => refreshCurrentUser(authToken || "")}
           />
         ) : null}
 

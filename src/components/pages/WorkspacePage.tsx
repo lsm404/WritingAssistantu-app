@@ -93,29 +93,31 @@ export function WorkspacePage({
                 />
               </div>
 
-              <div className="form-item">
-                <div className="form-item-label">目标读者</div>
-                <Select
-                  placeholder="选择目标读者"
-                  value={articleDraft.audience}
-                  onChange={(value) => onArticleFieldChange("audience", value)}
-                  options={audienceOptions}
-                  allowClear
-                />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+                <div className="form-item">
+                  <div className="form-item-label">目标读者</div>
+                  <Select
+                    placeholder="选择目标读者"
+                    value={articleDraft.audience}
+                    onChange={(value) => onArticleFieldChange("audience", value)}
+                    options={audienceOptions}
+                    allowClear
+                  />
+                </div>
+
+                <div className="form-item">
+                  <div className="form-item-label">风格偏好</div>
+                  <Select
+                    placeholder="选择风格偏好"
+                    value={articleDraft.style}
+                    onChange={(value) => onArticleFieldChange("style", value)}
+                    options={styleOptions}
+                    allowClear
+                  />
+                </div>
               </div>
 
-              <div className="form-item">
-                <div className="form-item-label">风格偏好</div>
-                <Select
-                  placeholder="选择风格偏好"
-                  value={articleDraft.style}
-                  onChange={(value) => onArticleFieldChange("style", value)}
-                  options={styleOptions}
-                  allowClear
-                />
-              </div>
-
-              <div className="form-row">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginTop: "4px" }}>
                 <div className="form-item">
                   <div className="form-item-label">长度</div>
                   <Select value={articleDraft.length} onChange={(value) => onArticleFieldChange("length", value)} options={lengthOptions} />
