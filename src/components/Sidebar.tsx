@@ -86,19 +86,14 @@ export function Sidebar({
     <aside className="sidebar">
       <div className="sidebar-brand">
         <div className="brand-logo">
-          <svg viewBox="0 0 32 32" width="38" height="38" fill="none">
-            <g transform="translate(1.6 0)">
-              <path d="M16 5.5 L9 13.4 L16 13.4 Z" fill="white" opacity="0.96" />
-              <path d="M16.8 7.4 L16.8 13.4 L23 13.4 Z" fill="white" opacity="0.72" />
-              <path d="M16 5.2 L16 16" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.9" />
-              <path d="M8.5 15.4 C11.5 16.5 20.5 16.5 23.6 15.4 C21.5 18 10.7 18 8.5 15.4 Z" fill="white" opacity="0.96" />
-              <path d="M7.2 19.2 C10.2 20.3 13 20.2 16 19.2" stroke="white" strokeWidth="1.7" strokeLinecap="round" opacity="0.88" />
-              <path d="M14.8 20.2 C17.5 21 20.2 20.9 24 19.3" stroke="white" strokeWidth="1.7" strokeLinecap="round" opacity="0.62" />
-            </g>
+          <svg viewBox="0 0 32 32" width="24" height="24" fill="white">
+            <path d="M16 2 C16 10 22 16 30 16 C22 16 16 22 16 30 C16 22 10 16 2 16 C10 16 16 10 16 2 Z" opacity="0.96" />
+            <path d="M26 4 C26 7 28 9 31 9 C28 9 26 11 26 14 C26 11 24 9 21 9 C24 9 26 7 26 4 Z" opacity="0.75" />
+            <path d="M7 23 C7 25 8.5 26.5 10.5 26.5 C8.5 26.5 7 28 7 30 C7 28 5.5 26.5 3.5 26.5 C5.5 26.5 7 25 7 23 Z" opacity="0.6" />
           </svg>
         </div>
         <div className="brand-name">
-          <span className="main">文爪</span>
+          <span className="main">写作助手</span>
           <span className="sub">桌面创作台</span>
         </div>
       </div>

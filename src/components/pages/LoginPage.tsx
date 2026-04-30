@@ -1,5 +1,5 @@
-import { LockOutlined, MailOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
-import { Button, Input, Segmented } from "antd";
+import { LockOutlined, MailOutlined, RobotOutlined, WechatOutlined } from "@ant-design/icons";
+import { Button, Input } from "antd";
 
 type AuthMode = "login" | "register";
 
@@ -19,65 +19,89 @@ type Props = {
 export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, onSubmit }: Props) {
   return (
     <div className="auth-shell">
+      <div className="auth-bg-shapes">
+        <div className="shape shape-1"></div>
+        <div className="shape shape-2"></div>
+        <div className="shape shape-3"></div>
+      </div>
       <div className="auth-hero">
-        <div className="auth-hero-badge">OpenClaw Workspace</div>
-        <h1>把创作、会员和桌面工作流放在同一个入口里。</h1>
-        <p>
-          登录后即可在客户端里直接查看会员状态，继续使用创作台、发送草稿和维护你的公众号配置。
-        </p>
-
-        <div className="auth-feature-grid">
-          <div className="auth-feature-card">
-            <SafetyCertificateOutlined />
-            <div>
-              <strong>统一账号</strong>
-              <span>登录后自动识别会员状态与身份</span>
-            </div>
+        <div className="auth-hero-content">
+          <div className="auth-hero-badge">
+            <span className="badge-dot"></span>
+            写作助手
           </div>
-          <div className="auth-feature-card">
-            <LockOutlined />
-            <div>
-              <strong>会员直达</strong>
-              <span>会员套餐可直接在客户端内开通和管理</span>
+          <h1>微信公众号智能写作助手</h1>
+          <p>
+            专为微信公众号作者打造。集成多账号管理、智能提示词与快捷排版，让每一次灵感都变为爆款。
+          </p>
+
+          <div className="auth-feature-grid">
+            <div className="auth-feature-card premium-card">
+              <div className="feature-icon-wrapper wechat-icon">
+                <WechatOutlined />
+              </div>
+              <div>
+                <strong>微信多账号管理</strong>
+                <span>在桌面端无缝完成从构思、撰写到一键群发的所有步骤。</span>
+              </div>
+            </div>
+            <div className="auth-feature-card premium-card">
+              <div className="feature-icon-wrapper ai-icon">
+                <RobotOutlined />
+              </div>
+              <div>
+                <strong>AI 智能创作增强</strong>
+                <span>内置丰富的提示词与 AI 辅助能力，自动生成高质量配文与插图。</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="auth-panel">
-        <div className="auth-card">
+        <div className="auth-card premium-glass">
           <div className="auth-card-top">
             <div className="auth-title-block">
-              <span className="auth-kicker">Secure Access</span>
-              <h2>{mode === "login" ? "欢迎回来" : "创建你的账号"}</h2>
-              <p>{mode === "login" ? "继续进入你的创作工作台。" : "先注册，再按自己的创作频率选择套餐。"}</p>
+              <span className="auth-kicker">Welcome</span>
+              <h2>{mode === "login" ? "欢迎回来，创作者" : "开启你的创作之旅"}</h2>
+              <p>{mode === "login" ? "登录账号，继续你的桌面工作流。" : "快速注册，探索智能写作与多账号管理的全新体验。"}</p>
             </div>
-            <Segmented
-              value={mode}
-              options={[
-                { label: "登录", value: "login" },
-                { label: "注册", value: "register" },
-              ]}
-              onChange={(value) => onModeChange(value as AuthMode)}
-            />
+            <div className="auth-tabs">
+              <button
+                className={`auth-tab ${mode === "login" ? "active" : ""}`}
+                onClick={() => onModeChange("login")}
+              >
+                登录账号
+              </button>
+              <button
+                className={`auth-tab ${mode === "register" ? "active" : ""}`}
+                onClick={() => onModeChange("register")}
+              >
+                注册账号
+              </button>
+            </div>
           </div>
 
           <div className="auth-form">
-            {mode === "register" ? (
+            <div className={`auth-field-wrapper ${mode === "register" ? "expanded" : ""}`}>
               <label className="auth-field">
-                <span>昵称</span>
+                <span>创作者昵称</span>
                 <Input
+                  className="premium-input"
+                  size="large"
                   value={form.displayName}
                   onChange={(event) => onFieldChange("displayName", event.target.value)}
-                  placeholder="例如：小林"
+                  placeholder="例如：林大大"
                 />
               </label>
-            ) : null}
+            </div>
 
             <label className="auth-field">
-              <span>邮箱</span>
+              <span>邮箱账号</span>
               <Input
-                prefix={<MailOutlined />}
+                className="premium-input"
+                size="large"
+                prefix={<MailOutlined className="input-icon" />}
                 value={form.email}
                 onChange={(event) => onFieldChange("email", event.target.value)}
                 placeholder="name@example.com"
@@ -85,18 +109,20 @@ export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, on
             </label>
 
             <label className="auth-field">
-              <span>密码</span>
+              <span>安全密码</span>
               <Input.Password
-                prefix={<LockOutlined />}
+                className="premium-input"
+                size="large"
+                prefix={<LockOutlined className="input-icon" />}
                 value={form.password}
                 onChange={(event) => onFieldChange("password", event.target.value)}
-                placeholder="至少 6 位"
+                placeholder="至少 6 位字符"
                 onPressEnter={onSubmit}
               />
             </label>
 
-            <Button type="primary" size="large" block loading={loading} onClick={onSubmit}>
-              {mode === "login" ? "登录并进入工作台" : "注册并继续"}
+            <Button className="premium-submit-btn" type="primary" size="large" block loading={loading} onClick={onSubmit}>
+              {mode === "login" ? "登录并进入工作台" : "注册账号并继续"}
             </Button>
           </div>
         </div>

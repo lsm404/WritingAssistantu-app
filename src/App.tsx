@@ -58,9 +58,11 @@ import { ImagePage } from "./components/pages/ImagePage";
 import { LoginPage } from "./components/pages/LoginPage";
 import { MembershipPage } from "./components/pages/MembershipPage";
 import { WechatPreviewModal } from "./components/WechatPreviewModal";
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 
-const MEMBER_BACKEND_BASE_URL = import.meta.env.VITE_MEMBER_API_BASE_URL?.trim() || "/member-api";
-const CONTENT_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || MEMBER_BACKEND_BASE_URL;
+const MEMBER_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
+const CONTENT_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 
 const storageKeys = {
   authToken: "openclaw.authToken",
@@ -148,6 +150,31 @@ function InnerApp() {
       .then((result) => setServiceStatus(result.ok ? "服务正常" : "服务异常"))
       .catch(() => setServiceStatus("连接失败"));
   }, []);
+
+  useEffect(() => {
+    const checkForAppUpdates = async () => {
+      try {
+        const update = await check();
+        if (update) {
+          modal.confirm({
+            title: `发现新版本 ${update.version}`,
+            content: `更新内容: ${update.body || '无详细说明'}`,
+            okText: '立即更新',
+            cancelText: '稍后',
+            onOk: async () => {
+              message.loading({ content: '正在下载更新...', key: 'update' });
+              await update.downloadAndInstall();
+              message.success({ content: '更新完成，正在重启...', key: 'update' });
+              await relaunch();
+            }
+          });
+        }
+      } catch (error) {
+        console.error('更新检查失败:', error);
+      }
+    };
+    checkForAppUpdates();
+  }, [modal, message]);
 
   useEffect(() => {
     fetchMembershipPlans(MEMBER_BACKEND_BASE_URL).then(setPlans).catch(() => undefined);
