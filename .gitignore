@@ -17,6 +17,10 @@ src-tauri/target/
 # ===== Tauri =====
 src-tauri/gen/
 
+
+# Local updater CDN prefix (optional; copy from updater/cdn-base.example.txt)
+updater/cdn-base.txt
+
 # ===== Environment Variables =====
 .env
 .env.local

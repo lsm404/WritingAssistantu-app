@@ -38,14 +38,17 @@ const imageQualities: Array<{ value: ImageQuality; label: string; desc: string }
   { value: "hd", label: "高清", desc: "细节更好" },
 ];
 
-function getFriendlyImageError(error: unknown) {
+function getFriendlyImageError(error: unknown, q: UserQuotaSummary | null) {
   if (!(error instanceof Error)) {
     return "图片生成失败";
   }
 
-  if (error.message === "IMAGE_QUOTA_EXCEEDED") {
-    return "本月图片额度已用完，下月会自动恢复，也可以升级套餐继续使用。";
-  }
+    if (error.message === "IMAGE_QUOTA_EXCEEDED") {
+      if (q?.usesFreeRollingWindows && q.image.resetEveryDays) {
+        return `当前配图额度已用完（每 ${q.image.resetEveryDays} 天恢复一次）。下个周期开始后会自动刷新，也可升级会员获得更高额度。`;
+      }
+      return "本月配图额度已用完，下月自动恢复；也可升级会员继续使用。";
+    }
 
   if (error.message === "UNAUTHORIZED") {
     return "登录状态已失效，请重新登录后再试。";
@@ -139,7 +142,7 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
       }
     } catch (error) {
       await onRefreshMembership?.();
-      message.error(getFriendlyImageError(error));
+      message.error(getFriendlyImageError(error, quota));
     } finally {
       setGenerating(false);
     }
@@ -161,6 +164,15 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
     link.click();
     message.success("图片开始下载");
   };
+
+  const imageTagLabel =
+    quota?.usesFreeRollingWindows && quota.image.resetEveryDays
+      ? `配图 · 每 ${quota.image.resetEveryDays} 天`
+      : "本月配图";
+  const textTagLabel =
+    quota?.usesFreeRollingWindows && quota.text.resetEveryDays
+      ? `文章 · 每 ${quota.text.resetEveryDays} 天`
+      : "今日文章";
 
   if (loading) {
     return (
@@ -184,11 +196,19 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
           <Tag color={isVipUser ? "gold" : "processing"} icon={<CrownOutlined />}>
             {isVipUser ? "会员额度" : "免费体验"}
           </Tag>
-          <Tag color="blue">本月图片 {imageQuotaText}</Tag>
-          <Tag color="geekblue">今日文字 {textQuotaText}</Tag>
+          <Tag color="blue">
+            {imageTagLabel} {imageQuotaText}
+          </Tag>
+          <Tag color="geekblue">
+            {textTagLabel} {textQuotaText}
+          </Tag>
         </div>
         <Typography.Text type="secondary">
-          图片按月额度扣减，文字创作按天额度扣减。图片额度用完后，你仍然可以继续使用文字能力。
+          {isVipUser
+            ? "会员套餐：文章按自然日、配图按自然月扣减；配图额度用完后，仍可继续生成文章。"
+            : quota?.usesFreeRollingWindows
+              ? "免费版：文章与 AI 配图各自按周期恢复额度（见上方标签）。配图用尽后，文章功能照常可用。"
+              : "额度按服务端规则扣减；配图用尽后，仍可继续使用文章能力。"}
         </Typography.Text>
       </div>
 
@@ -313,7 +333,7 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
                 生成结果会显示在这里
               </Typography.Title>
               <Typography.Text type="secondary">
-                当前支持免费体验和会员额度两种模式，系统会自动按你的剩余额度进行扣减。
+                免费版与会员版均支持；系统将根据当前剩余配额自动扣减。
               </Typography.Text>
             </Card>
           ) : (

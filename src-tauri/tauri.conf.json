@@ -25,15 +25,34 @@
   },
   "plugins": {
     "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3Nzk2OTUwNDRFNDk3NjkKUldScGwrUkVVR2w1dDErMHhUK2dndUk5R3pPalRiUXFnNStsN1FteHNjSldTN2loV3VGYklEVzYK",
       "endpoints": [
-        "https://your-server.com/releases/latest.json"
+        "https://releases.example.com/v2/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE1RjA2RDk3RjNGRUIzMjkKUldRcHMvN3psMjN3cFhIQUtDaXdDczRmQVhFaEc5RTRRbVoxU3RLZmlHWHQvY09kR3UrSEEwR0QK"
+      "windows": {
+        "installMode": "passive"
+      }
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": ["icons/icon.ico"]
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "createUpdaterArtifacts": "v1Compatible",
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/installer.ico",
+        "installMode": "perMachine",
+        "installerHooks": "nsis/tauri-hooks.nsh"
+      },
+      "wix": {
+        "language": "zh-CN"
+      }
+    }
   }
 }

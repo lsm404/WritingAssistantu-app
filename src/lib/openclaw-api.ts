@@ -15,6 +15,8 @@ import type {
   UserMembership,
 } from "./types";
 
+import { getOrCreateDeviceId } from "./device-id";
+
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 
@@ -26,7 +28,40 @@ const DE_AI_TONE_INSTRUCTION = `【去 AI 味硬性规则，必须严格遵守�
 5. 观点要具体，少说空泛正确的话。
 6. 结尾不要升华，不要喊口号，用一个具体画面或一句轻一点的话收住。
 7. 小标题要具体，不要“核心逻辑/关键要点”这种空标题。
-请把以上规则当作底线，在不违背主题要求的前提下，写出像真人自然写出来的公众号文章。}`;
+请把以上规则当作底线，在不违背主题要求的前提下，写出像真人自然写出来的公众号文章。`;
+
+/** 发往模型的「规则/系统指令」类文本字符上限（UTF-16 码元，与 String.length 一致），所有组装入口在此处截断且不可跳过。 */
+const AI_RULE_INSTRUCTIONS_MAX_CHARS = 5000;
+
+const AI_RULE_TRUNCATION_MARKER = "…[已按平台规则截断]";
+
+function clampAiInstructionString(text: string, maxChars: number): string {
+  if (maxChars <= 0) {
+    return "";
+  }
+  const t = text.trim();
+  if (t.length <= maxChars) {
+    return t;
+  }
+  const marker = AI_RULE_TRUNCATION_MARKER;
+  if (maxChars <= marker.length) {
+    return t.slice(0, maxChars);
+  }
+  const budget = maxChars - marker.length;
+  return t.slice(0, budget) + marker;
+}
+
+/** 两段规则（如：系统提示 + 去 AI 味）总长不超过 maxChars；优先保留后段，前段可截断。 */
+function enforceTwoPartAiRules(partA: string, partB: string, maxChars: number): [string, string] {
+  if (partA.length + partB.length <= maxChars) {
+    return [partA, partB];
+  }
+  if (partB.length >= maxChars) {
+    return ["", clampAiInstructionString(partB, maxChars)];
+  }
+  const maxA = maxChars - partB.length;
+  return [clampAiInstructionString(partA, maxA), partB];
+}
 
 export const defaultBackendBaseUrl = envBaseUrl || "";
 
@@ -49,10 +84,12 @@ export async function registerAccount(
   baseUrl: string,
   payload: { email: string; password: string; displayName: string },
 ): Promise<{ user: AuthUser }> {
+  const deviceId = getOrCreateDeviceId();
   const response = await fetch(`${baseUrl}/v1/auth/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-Device-Id": deviceId,
     },
     body: JSON.stringify(payload),
   });
@@ -147,13 +184,16 @@ export async function checkoutMembership(
 }
 
 export function buildGeneratePayload(payload: GeneratePayload) {
+  const trimmedSystem = payload.systemPrompt?.trim();
   return {
     topic: payload.topic,
     audience: payload.audience || undefined,
     style: payload.style || undefined,
     length: payload.length,
     mode: payload.mode,
-    system_prompt: payload.systemPrompt || undefined,
+    system_prompt: trimmedSystem
+      ? clampAiInstructionString(trimmedSystem, AI_RULE_INSTRUCTIONS_MAX_CHARS)
+      : undefined,
     creation_mode: payload.creationMode,
     source_article: payload.sourceArticle || undefined,
     rewrite_goal: payload.rewriteGoal,
@@ -233,6 +273,15 @@ function buildDirectUserPrompt(payload: GeneratePayload) {
 }
 
 function buildRequestBody(payload: GeneratePayload, stream: boolean) {
+  const defaultRole =
+    "你是一名擅长微信公众号写作的内容编辑，请输出适合直接发布或继续润色的 Markdown。";
+  const primaryRule = (payload.systemPrompt?.trim() || defaultRole).trim() || defaultRole;
+  const [ruleBlockSystem, ruleBlockDeAi] = enforceTwoPartAiRules(
+    primaryRule,
+    DE_AI_TONE_INSTRUCTION,
+    AI_RULE_INSTRUCTIONS_MAX_CHARS,
+  );
+
   return {
     model: payload.apiModel,
     input: [
@@ -241,11 +290,11 @@ function buildRequestBody(payload: GeneratePayload, stream: boolean) {
         content: [
           {
             type: "input_text",
-            text: payload.systemPrompt || "你是一名擅长微信公众号写作的内容编辑，请输出适合直接发布或继续润色的 Markdown。",
+            text: ruleBlockSystem,
           },
           {
             type: "input_text",
-            text: DE_AI_TONE_INSTRUCTION,
+            text: ruleBlockDeAi,
           },
           {
             type: "input_text",

@@ -91,15 +91,24 @@ export interface UserMembership {
   plan: MembershipPlan;
 }
 
+export type QuotaResetMode = "calendar_day" | "calendar_month" | "rolling_days";
+
 export interface UsageQuotaItem {
   limit: number;
   used: number;
   remaining: number;
   periodKey: string;
+  resetMode: QuotaResetMode;
+  /** 滚动周期天数；会员按月时图片为 null */
+  resetEveryDays: number | null;
+  /** 下一轮额度恢复的 UTC 时刻（ISO 8601）；展示时换算为本地时间 */
+  quotaRefreshAt?: string | null;
 }
 
 export interface UserQuotaSummary {
   source: string;
+  /** 未开通会员时为 true，表示使用可配置天数的滚动窗口 */
+  usesFreeRollingWindows?: boolean;
   text: UsageQuotaItem;
   image: UsageQuotaItem;
 }

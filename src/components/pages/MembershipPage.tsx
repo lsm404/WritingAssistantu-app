@@ -6,11 +6,12 @@ import {
   StarFilled,
 } from "@ant-design/icons";
 import { Button, Tag } from "antd";
-import type { MembershipPlan, UserMembership } from "../../lib/types";
+import type { MembershipPlan, UserMembership, UserQuotaSummary } from "../../lib/types";
 
 type Props = {
   plans: MembershipPlan[];
   membership: UserMembership | null;
+  quota: UserQuotaSummary | null;
   loading: boolean;
   activePlanCode: string;
   onCheckout: (planCode: string) => void;
@@ -79,9 +80,13 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function getStatusText(membership: UserMembership | null) {
+function getStatusText(membership: UserMembership | null, quotaSummary: UserQuotaSummary | null) {
   if (!membership?.isActive) {
-    return "当前账号尚未开通会员，默认可体验每天 3 次文字创作和每月 3 张图片额度。";
+    const textCycle = quotaSummary?.text.resetEveryDays ?? 3;
+    const imageCycle = quotaSummary?.image.resetEveryDays ?? 7;
+    const textLim = quotaSummary?.text.limit ?? 3;
+    const imageLim = quotaSummary?.image.limit ?? 3;
+    return `您正在使用免费版：每 ${textCycle} 天可享受 ${textLim} 次文章生成额度，每 ${imageCycle} 天可享受 ${imageLim} 张 AI 配图额度；两个周期分别计算，到期自动恢复。开通会员可获得更高额度，并按自然日 / 自然月计费。`;
   }
 
   if (membership.plan.isLifetime) {
@@ -101,7 +106,7 @@ function getDisplayPlans(plans: MembershipPlan[]) {
   }));
 }
 
-export function MembershipPage({ plans, membership, loading, activePlanCode, onCheckout }: Props) {
+export function MembershipPage({ plans, membership, quota, loading, activePlanCode, onCheckout }: Props) {
   const displayPlans = getDisplayPlans(plans);
   const currentPlanCode = membership?.isActive ? membership.plan.code : "";
 
@@ -120,12 +125,22 @@ export function MembershipPage({ plans, membership, loading, activePlanCode, onC
               <div className="membership-status-name">
                 {membership?.isActive ? membership.plan.name : "普通用户"}
               </div>
-              <div className="membership-status-meta">{getStatusText(membership)}</div>
+              <div className="membership-status-meta">{getStatusText(membership, quota)}</div>
             </div>
             <div className="membership-status-tags">
-              <span>每日文字创作</span>
-              <span>每月图片额度</span>
-              <span>会员权益即时生效</span>
+              {membership?.isActive ? (
+                <>
+                  <span>每日文章生成</span>
+                  <span>每月配图额度</span>
+                  <span>会员权益即时生效</span>
+                </>
+              ) : (
+                <>
+                  <span>文章 · 每 {quota?.text.resetEveryDays ?? 3} 天重置</span>
+                  <span>配图 · 每 {quota?.image.resetEveryDays ?? 7} 天重置</span>
+                  <span>开通会员 · 解锁更高额度</span>
+                </>
+              )}
             </div>
             <div className="membership-status-strip" />
           </div>

@@ -30,9 +30,9 @@ export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, on
             <span className="badge-dot"></span>
             写作助手
           </div>
-          <h1>微信公众号智能写作助手</h1>
+          <h1>智能写作助手</h1>
           <p>
-            专为微信公众号作者打造。集成多账号管理、智能提示词与快捷排版，让每一次灵感都变为爆款。
+            专为内容创作者打造。集成多账号管理、智能提示词与快捷排版，让每一次灵感都变为爆款。
           </p>
 
           <div className="auth-feature-grid">

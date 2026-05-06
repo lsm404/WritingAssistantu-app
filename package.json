@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release:win": "tauri build && node scripts/gen-updater-manifest.mjs",
+    "release:updater-json": "node scripts/gen-updater-manifest.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",

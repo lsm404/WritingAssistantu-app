@@ -75,6 +75,12 @@ const storageKeys = {
   draftMeta: "openclaw.draftMeta",
 } as const;
 
+const REGISTER_ERROR_HINT: Record<string, string> = {
+  REGISTRATION_IP_LIMIT: "当前 IP 在近期注册次数过多，请稍后再试。",
+  REGISTRATION_SUBNET_LIMIT: "当前网络环境注册次数过多，请稍后再试。",
+  REGISTRATION_DEVICE_LIMIT: "本设备注册账号数已达上限，请使用已有账号登录。",
+};
+
 function getMembershipToneClass(planCode?: string | null) {
   switch (planCode) {
     case "monthly_199":
@@ -261,7 +267,9 @@ function InnerApp() {
 
     window.addEventListener("focus", handleFocusRefresh);
     return () => window.removeEventListener("focus", handleFocusRefresh);
-  }, [activeView, authToken, currentUser]);
+    // Intentionally depend on stable user identity, not `currentUser` object: refreshing
+    // replaces `currentUser` with a new reference every time and would retrigger this effect.
+  }, [activeView, authToken, currentUser?.id]);
 
   const activeAccount = useMemo(
     () => accounts.find((account) => account.id === activeAccountId) ?? accounts[0],
@@ -338,11 +346,17 @@ function InnerApp() {
     }
 
     if (error.message === "TEXT_QUOTA_EXCEEDED") {
-      return "今日文字创作额度已用完，明天会自动恢复，也可以开通更高套餐。";
+      if (quota?.usesFreeRollingWindows && quota.text.resetEveryDays) {
+        return `当前文章生成额度已用完（每 ${quota.text.resetEveryDays} 天恢复一次）。下个周期开始后会自动刷新，也可开通会员获得更高额度。`;
+      }
+      return "今日文章生成额度已用完，明日自动恢复；也可开通会员提升额度。";
     }
 
     if (error.message === "IMAGE_QUOTA_EXCEEDED") {
-      return "本月图片额度已用完，下月会自动恢复，也可以升级套餐继续使用。";
+      if (quota?.usesFreeRollingWindows && quota.image.resetEveryDays) {
+        return `当前配图额度已用完（每 ${quota.image.resetEveryDays} 天恢复一次）。下个周期开始后会自动刷新，也可升级会员继续使用。`;
+      }
+      return "本月配图额度已用完，下月自动恢复；也可升级会员继续使用。";
     }
 
     if (error.message === "UNAUTHORIZED") {
@@ -362,7 +376,7 @@ function InnerApp() {
     return Array.from({ length: count }, (_, index) => {
       const chunk = chunks[index] || chunks[chunks.length - 1] || title;
       return [
-        "微信公众号文章配图，中文内容理解后生成画面。",
+        "文章配图，中文内容理解后生成画面。",
         "风格要求：简洁、质感、高级、适合公众号排版配图。",
         `文章标题：${title}`,
         `配图重点：${chunk.replace(/^#+\s*/, "").slice(0, 120)}`,
@@ -459,7 +473,9 @@ function InnerApp() {
       await refreshCurrentUser(result.token);
       message.success("登录成功");
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "登录失败");
+      const raw = error instanceof Error ? error.message : "登录失败";
+      const tip = authMode === "register" ? REGISTER_ERROR_HINT[raw] ?? raw : raw;
+      message.error(tip);
     } finally {
       setAuthLoading(false);
     }
@@ -485,7 +501,7 @@ function InnerApp() {
       title: `开通${targetPlan?.name ?? "会员"}`,
       okText: "我知道了",
       content: (
-          <div style={{ lineHeight: 1.8, color: "#475467", paddingTop: 8 }}>
+        <div style={{ lineHeight: 1.8, color: "#475467", paddingTop: 8 }}>
           <div>当前版本暂不支持在线自助支付。</div>
           <div style={{ marginTop: 6 }}>
             如需开通会员，请联系微信：
@@ -670,7 +686,7 @@ function InnerApp() {
     }
 
     if ((articleDraft.imageCount ?? 0) > 0 && !membership?.isActive) {
-      message.info("当前账号会优先使用免费图片额度，图片额度不足时会提示你开通会员。");
+      message.info("将按照免费版周期性配图额度扣减；若额度不足会提示您是否开通会员。");
     }
 
     setIsGenerating(true);
@@ -912,6 +928,7 @@ function InnerApp() {
           <MembershipPage
             plans={plans}
             membership={membership}
+            quota={quota}
             loading={!!checkoutLoading}
             activePlanCode={checkoutLoading}
             onCheckout={(planCode) => void handleCheckout(planCode)}

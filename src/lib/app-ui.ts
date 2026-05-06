@@ -228,13 +228,13 @@ const PROMPT_TREEHOUSE = `# 树洞学姐写作风格
 
 export function defaultPromptSlots(): PromptSlot[] {
   return [
-    {
-      id: createId("prompt"),
-      name: "系统提示词",
-      defaultName: "系统提示词",
-      content: PROMPT_GENERIC,
-      defaultContent: PROMPT_GENERIC,
-    },
+    // {
+    //   id: createId("prompt"),
+    //   name: "系统提示词",
+    //   defaultName: "系统提示词",
+    //   content: PROMPT_GENERIC,
+    //   defaultContent: PROMPT_GENERIC,
+    // },
     {
       id: createId("prompt"),
       name: "新媒体运营",

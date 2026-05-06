@@ -51,6 +51,28 @@ function getMembershipToneClass(planCode?: string | null) {
   }
 }
 
+function quotaRefreshCaption(iso: string | null | undefined): string | null {
+  if (!iso) {
+    return null;
+  }
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+    const ts = new Intl.DateTimeFormat("zh-CN", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(d);
+    return `${ts} 更新额度`;
+  } catch {
+    return null;
+  }
+}
+
 export function Sidebar({
   activeView,
   serviceStatus,
@@ -66,7 +88,7 @@ export function Sidebar({
   onEditAccount,
   onLogout,
 }: Props) {
-  const membershipLabel = membership?.isActive ? membership.plan.name : "未开通会员";
+  const membershipLabel = membership?.isActive ? membership.plan.name : "普通用户";
   const membershipToneClass = getMembershipToneClass(membership?.plan?.code);
   const defaultQuota = membership?.isActive
     ? membership.plan?.code
@@ -81,6 +103,18 @@ export function Sidebar({
   const imageProgress = imageLimit > 0
     ? Math.min(100, (imageUsed / imageLimit) * 100)
     : 0;
+
+  const textPeriodShort =
+    quota?.usesFreeRollingWindows && quota.text.resetEveryDays
+      ? `文章`
+      : "今日文章";
+  const imagePeriodShort =
+    quota?.usesFreeRollingWindows && quota.image.resetEveryDays
+      ? `配图`
+      : "本月配图";
+
+  const textRefreshLine = quotaRefreshCaption(quota?.text.quotaRefreshAt);
+  const imageRefreshLine = quotaRefreshCaption(quota?.image.quotaRefreshAt);
 
   return (
     <aside className="sidebar">
@@ -154,23 +188,27 @@ export function Sidebar({
           <span className="footer-detail-val">{maskValue(currentUser.email, 5, 8)}</span>
         </div>
         <div className="footer-detail-row">
-          <span className="footer-detail-key">会员</span>
           <span className={`footer-detail-val footer-membership-pill ${membershipToneClass}`}>{membershipLabel}</span>
         </div>
-        <div className="footer-thumb-status">
-          <div className={`footer-thumb-dot${membership?.isActive ? " ok" : ""}`} />
-          <span>{membership?.isActive ? "会员权益已激活" : "开通会员后可查看额度使用情况"}</span>
-        </div>
+        {membership?.isActive ? (
+          <div className="footer-thumb-status">
+            <div className="footer-thumb-dot ok" />
+            <span>会员权益已激活</span>
+          </div>
+        ) : null}
 
         <div className="footer-quota-card">
           <div className="footer-quota-head">
             <span>额度消耗</span>
-            <span className="footer-quota-note">{membership?.isActive ? "按当前套餐" : "免费体验"}</span>
+            <span className="footer-quota-note">{membership?.isActive ? "当前套餐" : "免费版"}</span>
           </div>
 
           <div className="footer-quota-item">
-            <div className="footer-quota-row">
-              <span>今日文字</span>
+            {textRefreshLine ? (
+              <div className="footer-quota-refresh-meta footer-quota-refresh-meta-text">{textRefreshLine}</div>
+            ) : null}
+            <div className="footer-quota-title-row">
+              <span className="footer-quota-title-text">{textPeriodShort}</span>
               <strong>{textLimit > 0 ? `${textUsed} / ${textLimit}` : "-- / --"}</strong>
             </div>
             <div className="footer-quota-bar">
@@ -179,8 +217,11 @@ export function Sidebar({
           </div>
 
           <div className="footer-quota-item">
-            <div className="footer-quota-row">
-              <span>本月图片</span>
+            {imageRefreshLine ? (
+              <div className="footer-quota-refresh-meta footer-quota-refresh-meta-image">{imageRefreshLine}</div>
+            ) : null}
+            <div className="footer-quota-title-row">
+              <span className="footer-quota-title-text">{imagePeriodShort}</span>
               <strong>{imageLimit > 0 ? `${imageUsed} / ${imageLimit}` : "-- / --"}</strong>
             </div>
             <div className="footer-quota-bar">
