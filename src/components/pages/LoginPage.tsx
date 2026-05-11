@@ -1,4 +1,4 @@
-import { LockOutlined, MailOutlined, RobotOutlined, WechatOutlined } from "@ant-design/icons";
+import { GiftOutlined, LockOutlined, MailOutlined, RobotOutlined, WechatOutlined } from "@ant-design/icons";
 import { Button, Input } from "antd";
 
 type AuthMode = "login" | "register";
@@ -10,9 +10,10 @@ type Props = {
     email: string;
     password: string;
     displayName: string;
+    inviteCode: string;
   };
   onModeChange: (mode: AuthMode) => void;
-  onFieldChange: (key: "email" | "password" | "displayName", value: string) => void;
+  onFieldChange: (key: "email" | "password" | "displayName" | "inviteCode", value: string) => void;
   onSubmit: () => void;
 };
 
@@ -95,6 +96,24 @@ export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, on
                 />
               </label>
             </div>
+
+            {mode === "register" ? (
+            <label className="auth-field auth-field-invite-code">
+              <span>代理人邀请码（8 位字母）</span>
+              <Input
+                className="premium-input invite-code-input"
+                size="large"
+                prefix={<GiftOutlined className="input-icon" />}
+                value={form.inviteCode}
+                onChange={(event) => {
+                  const v = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 8);
+                  onFieldChange("inviteCode", v);
+                }}
+                placeholder="例如：ABCDEFGH"
+                maxLength={8}
+              />
+            </label>
+            ) : null}
 
             <label className="auth-field">
               <span>邮箱账号</span>

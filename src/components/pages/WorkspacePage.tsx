@@ -1,6 +1,26 @@
 import { Button, Input, Radio, Select, Space, Spin } from "antd";
-import { BulbOutlined, CopyOutlined, DeleteOutlined, EyeOutlined, FileTextOutlined, LoadingOutlined, PictureOutlined, ReloadOutlined } from "@ant-design/icons";
-import type { GeneratePayload } from "../../lib/types";
+import {
+  BulbOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  FileTextOutlined,
+  LoadingOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  PictureOutlined,
+} from "@ant-design/icons";
+import type { GeneratePayload, WechatAccount } from "../../lib/types";
+import {
+  parseWorkspaceOptionalEnum,
+  parseWorkspaceOptionalField,
+  parseWorkspaceOptionalImageCount,
+  WORKSPACE_TOPIC_MAX_CHARS,
+  workspaceOptionalEnumValue,
+  workspaceOptionalFieldValue,
+  workspaceOptionalImageCountValue,
+  type PromptSlot,
+} from "../../lib/app-ui";
 
 const { TextArea } = Input;
 
@@ -11,15 +31,20 @@ type Props = {
   isGenerating?: boolean;
   isGeneratingImages?: boolean;
   isSendingDraft?: boolean;
-  imageCountOptions: Array<{ label: string; value: number }>;
-  lengthOptions: Array<{ label: string; value: GeneratePayload["length"] }>;
-  modeOptions: Array<{ label: string; value: GeneratePayload["mode"] }>;
-  expressionModeOptions: Array<{ label: string; value: GeneratePayload["expressionMode"] }>;
+  imageCountOptions: Array<{ label: string; value: string | number }>;
+  modeOptions: Array<{ label: string; value: string }>;
+  expressionModeOptions: Array<{ label: string; value: string }>;
   audienceOptions: Array<{ label: string; value: string }>;
   styleOptions: Array<{ label: string; value: string }>;
-  rewriteGoalOptions: Array<{ label: string; value: GeneratePayload["rewriteGoal"] }>;
-  referenceFocusOptions: Array<{ label: string; value: GeneratePayload["referenceFocus"] }>;
-  referenceLevelOptions: Array<{ label: string; value: GeneratePayload["referenceLevel"] }>;
+  rewriteGoalOptions: Array<{ label: string; value: string }>;
+  referenceFocusOptions: Array<{ label: string; value: string }>;
+  referenceLevelOptions: Array<{ label: string; value: string }>;
+  accounts: WechatAccount[];
+  activeAccountId: string;
+  onAccountChange: (id: string) => void;
+  promptSlots: PromptSlot[];
+  activePromptId: string;
+  onPromptChange: (id: string) => void;
   onToggleSettings: () => void;
   onArticleFieldChange: <K extends keyof GeneratePayload>(key: K, value: GeneratePayload[K]) => void;
   onResultMarkdownChange: (value: string) => void;
@@ -37,7 +62,6 @@ export function WorkspacePage({
   isGeneratingImages = false,
   isSendingDraft = false,
   imageCountOptions,
-  lengthOptions,
   modeOptions,
   expressionModeOptions,
   audienceOptions,
@@ -45,6 +69,12 @@ export function WorkspacePage({
   rewriteGoalOptions,
   referenceFocusOptions,
   referenceLevelOptions,
+  accounts,
+  activeAccountId,
+  onAccountChange,
+  promptSlots,
+  activePromptId,
+  onPromptChange,
   onToggleSettings,
   onArticleFieldChange,
   onResultMarkdownChange,
@@ -70,13 +100,27 @@ export function WorkspacePage({
       </div>
 
       <div className="panels-row">
-        <section className="settings-panel">
+        <section className={`settings-panel${settingsCollapsed ? " settings-panel--collapsed" : ""}`}>
           <div className="ui-card">
-            <div className="card-header">
-              <span className="card-title">创作设置</span>
-              <Button type="text" size="small" icon={<ReloadOutlined />} onClick={onToggleSettings}>
-                {settingsCollapsed ? "展开" : "收起"}
-              </Button>
+            <div className={`card-header${settingsCollapsed ? " card-header--icon-only" : ""}`}>
+              {!settingsCollapsed ? (
+                <>
+                  <span className="card-title">创作设置</span>
+                  <Button type="text" size="small" icon={<MenuFoldOutlined />} onClick={onToggleSettings}>
+                    收起
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="text"
+                  size="small"
+                  className="settings-panel-expand-trigger"
+                  icon={<MenuUnfoldOutlined />}
+                  onClick={onToggleSettings}
+                  aria-label="展开创作设置"
+                  title="展开创作设置"
+                />
+              )}
             </div>
 
             {!settingsCollapsed ? (
@@ -89,7 +133,7 @@ export function WorkspacePage({
                     onChange={(event) => onArticleFieldChange("creationMode", event.target.value)}
                     buttonStyle="solid"
                   >
-                    <Radio.Button value="original">原创生成</Radio.Button>
+                    <Radio.Button value="synthesized">原创生成</Radio.Button>
                     <Radio.Button value="rewrite">参考改写</Radio.Button>
                   </Radio.Group>
                 </div>
@@ -102,9 +146,35 @@ export function WorkspacePage({
                   <Input
                     placeholder="输入文章主题或核心观点"
                     value={articleDraft.topic}
-                    onChange={(event) => onArticleFieldChange("topic", event.target.value)}
-                    suffix={<span className="input-counter">{articleDraft.topic.length}/60</span>}
-                    maxLength={60}
+                    onChange={(event) =>
+                      onArticleFieldChange("topic", event.target.value.slice(0, WORKSPACE_TOPIC_MAX_CHARS))
+                    }
+                    suffix={
+                      <span className="input-counter">
+                        {articleDraft.topic.length}/{WORKSPACE_TOPIC_MAX_CHARS}
+                      </span>
+                    }
+                    maxLength={WORKSPACE_TOPIC_MAX_CHARS}
+                  />
+                </div>
+
+                <div className="form-item">
+                  <div className="form-item-label">公众号</div>
+                  <Select
+                    placeholder={accounts.length ? "选择公众号" : "请先在「公众号」页添加配置"}
+                    value={accounts.some((a) => a.id === activeAccountId) ? activeAccountId : undefined}
+                    onChange={onAccountChange}
+                    options={accounts.map((a) => ({ label: a.name, value: a.id }))}
+                  />
+                </div>
+
+                <div className="form-item">
+                  <div className="form-item-label">提示词</div>
+                  <Select
+                    placeholder="选择提示词模板"
+                    value={promptSlots.some((s) => s.id === activePromptId) ? activePromptId : undefined}
+                    onChange={onPromptChange}
+                    options={promptSlots.map((s) => ({ label: s.name, value: s.id }))}
                   />
                 </div>
 
@@ -112,48 +182,54 @@ export function WorkspacePage({
                   <div className="form-item">
                     <div className="form-item-label">目标读者</div>
                     <Select
-                      placeholder="选择目标读者"
-                      value={articleDraft.audience}
-                      onChange={(value) => onArticleFieldChange("audience", value)}
+                      value={workspaceOptionalFieldValue(articleDraft.audience)}
+                      onChange={(value) => onArticleFieldChange("audience", parseWorkspaceOptionalField(value))}
                       options={audienceOptions}
-                      allowClear
                     />
                   </div>
 
                   <div className="form-item">
                     <div className="form-item-label">风格偏好</div>
                     <Select
-                      placeholder="选择风格偏好"
-                      value={articleDraft.style}
-                      onChange={(value) => onArticleFieldChange("style", value)}
+                      value={workspaceOptionalFieldValue(articleDraft.style)}
+                      onChange={(value) => onArticleFieldChange("style", parseWorkspaceOptionalField(value))}
                       options={styleOptions}
-                      allowClear
                     />
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginTop: "4px" }}>
                   <div className="form-item">
-                    <div className="form-item-label">长度</div>
-                    <Select value={articleDraft.length} onChange={(value) => onArticleFieldChange("length", value)} options={lengthOptions} />
-                  </div>
-                  <div className="form-item">
                     <div className="form-item-label">配图数量</div>
                     <Select
-                      value={articleDraft.imageCount ?? 0}
-                      onChange={(value) => onArticleFieldChange("imageCount", value)}
+                      value={workspaceOptionalImageCountValue(articleDraft.imageCount)}
+                      onChange={(value) => onArticleFieldChange("imageCount", parseWorkspaceOptionalImageCount(value))}
                       options={imageCountOptions}
                     />
                   </div>
                   <div className="form-item">
                     <div className="form-item-label">模式</div>
-                    <Select value={articleDraft.mode} onChange={(value) => onArticleFieldChange("mode", value)} options={modeOptions} />
+                    <Select
+                      value={workspaceOptionalEnumValue(articleDraft.mode)}
+                      onChange={(value) =>
+                        onArticleFieldChange(
+                          "mode",
+                          parseWorkspaceOptionalEnum<NonNullable<GeneratePayload["mode"]>>(value),
+                        )
+                      }
+                      options={modeOptions}
+                    />
                   </div>
-                  <div className="form-item">
+                  <div className="form-item" style={{ gridColumn: "span 2" }}>
                     <div className="form-item-label">表达处理</div>
                     <Select
-                      value={articleDraft.expressionMode}
-                      onChange={(value) => onArticleFieldChange("expressionMode", value)}
+                      value={workspaceOptionalEnumValue(articleDraft.expressionMode)}
+                      onChange={(value) =>
+                        onArticleFieldChange(
+                          "expressionMode",
+                          parseWorkspaceOptionalEnum<NonNullable<GeneratePayload["expressionMode"]>>(value),
+                        )
+                      }
                       options={expressionModeOptions}
                     />
                   </div>
@@ -164,15 +240,42 @@ export function WorkspacePage({
                     <div className="form-row">
                       <div className="form-item">
                         <div className="form-item-label">改写目标</div>
-                        <Select value={articleDraft.rewriteGoal} onChange={(value) => onArticleFieldChange("rewriteGoal", value)} options={rewriteGoalOptions} />
+                        <Select
+                          value={workspaceOptionalEnumValue(articleDraft.rewriteGoal)}
+                          onChange={(value) =>
+                            onArticleFieldChange(
+                              "rewriteGoal",
+                              parseWorkspaceOptionalEnum<NonNullable<GeneratePayload["rewriteGoal"]>>(value),
+                            )
+                          }
+                          options={rewriteGoalOptions}
+                        />
                       </div>
                       <div className="form-item">
                         <div className="form-item-label">参考重点</div>
-                        <Select value={articleDraft.referenceFocus} onChange={(value) => onArticleFieldChange("referenceFocus", value)} options={referenceFocusOptions} />
+                        <Select
+                          value={workspaceOptionalEnumValue(articleDraft.referenceFocus)}
+                          onChange={(value) =>
+                            onArticleFieldChange(
+                              "referenceFocus",
+                              parseWorkspaceOptionalEnum<NonNullable<GeneratePayload["referenceFocus"]>>(value),
+                            )
+                          }
+                          options={referenceFocusOptions}
+                        />
                       </div>
                       <div className="form-item">
                         <div className="form-item-label">参考强度</div>
-                        <Select value={articleDraft.referenceLevel} onChange={(value) => onArticleFieldChange("referenceLevel", value)} options={referenceLevelOptions} />
+                        <Select
+                          value={workspaceOptionalEnumValue(articleDraft.referenceLevel)}
+                          onChange={(value) =>
+                            onArticleFieldChange(
+                              "referenceLevel",
+                              parseWorkspaceOptionalEnum<NonNullable<GeneratePayload["referenceLevel"]>>(value),
+                            )
+                          }
+                          options={referenceLevelOptions}
+                        />
                       </div>
                     </div>
 

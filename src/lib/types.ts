@@ -7,7 +7,7 @@ export type WritingMode =
   | "listicle"
   | "analysis";
 
-export type CreationMode = "original" | "rewrite";
+export type CreationMode = "synthesized" | "rewrite";
 
 export type RewriteGoal =
   | "new_article"
@@ -33,18 +33,18 @@ export interface RuntimeInfo {
 
 export interface GeneratePayload {
   topic: string;
-  audience: string;
-  style: string;
+  audience?: string;
+  style?: string;
   length: ArticleLength;
   imageCount?: number;
-  mode: WritingMode;
+  mode?: WritingMode;
   systemPrompt: string;
   creationMode: CreationMode;
   sourceArticle?: string;
-  rewriteGoal: RewriteGoal;
-  referenceFocus: ReferenceFocus;
-  referenceLevel: ReferenceLevel;
-  expressionMode: ExpressionMode;
+  rewriteGoal?: RewriteGoal;
+  referenceFocus?: ReferenceFocus;
+  referenceLevel?: ReferenceLevel;
+  expressionMode?: ExpressionMode;
   apiKey?: string;
   apiModel?: string;
   apiBaseUrl?: string;
@@ -65,6 +65,7 @@ export interface AuthUser {
   displayName: string;
   role: string;
   status: string;
+  signupInviteCode?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -141,8 +142,8 @@ export interface GenerateResponse {
   meta: {
     model: string;
     length: ArticleLength;
-    mode: WritingMode;
-    creationMode: "original" | "rewrite";
+    mode?: WritingMode;
+    creationMode: "synthesized" | "rewrite";
   };
   quota?: UserQuotaSummary;
 }

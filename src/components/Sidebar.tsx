@@ -1,13 +1,10 @@
-import { Button, Select, Space } from "antd";
 import {
   AppstoreOutlined,
   BulbOutlined,
   CheckCircleFilled,
-  EditOutlined,
   LockOutlined,
-  PlusOutlined,
+  MessageOutlined,
   SettingOutlined,
-  UserOutlined,
 } from "@ant-design/icons";
 import type { SidebarView } from "../lib/app-ui";
 import { maskValue } from "../lib/app-ui";
@@ -15,17 +12,11 @@ import type { AuthUser, UserMembership, UserQuotaSummary, WechatAccount } from "
 
 type Props = {
   activeView: SidebarView;
-  serviceStatus: string;
   currentUser: AuthUser;
   membership: UserMembership | null;
   quota: UserQuotaSummary | null;
-  accounts: WechatAccount[];
-  activeAccountId: string;
   activeAccount?: WechatAccount;
   onViewChange: (view: SidebarView) => void;
-  onAccountChange: (id: string) => void;
-  onAddAccount: () => void;
-  onEditAccount: () => void;
   onLogout: () => void;
 };
 
@@ -75,17 +66,11 @@ function quotaRefreshCaption(iso: string | null | undefined): string | null {
 
 export function Sidebar({
   activeView,
-  serviceStatus,
   currentUser,
   membership,
   quota,
-  accounts,
-  activeAccountId,
   activeAccount,
   onViewChange,
-  onAccountChange,
-  onAddAccount,
-  onEditAccount,
   onLogout,
 }: Props) {
   const membershipLabel = membership?.isActive ? membership.plan.name : "普通用户";
@@ -132,30 +117,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="account-section">
-        <div className="nav-section-title">
-          <span>我的公众号</span>
-          <Space size={4}>
-            <Button type="text" size="small" icon={<PlusOutlined />} onClick={onAddAccount} />
-            <Button type="text" size="small" icon={<EditOutlined />} onClick={onEditAccount} />
-          </Space>
-        </div>
-        <Select
-          style={{ width: "100%" }}
-          value={activeAccountId}
-          onChange={onAccountChange}
-          options={accounts.map((account) => ({ label: account.name, value: account.id }))}
-          labelRender={({ label }) => (
-            <div className="account-select-label">
-              <div className="account-avatar-icon">号</div>
-              <span className="account-select-name">{label}</span>
-              <CheckCircleFilled style={{ color: "#22c55e", fontSize: 13 }} />
-            </div>
-          )}
-        />
-      </div>
-
-      <nav className="nav-list">
+      <nav className="nav-list sidebar-nav-main">
         <button className={`nav-item${activeView === "workspace" ? " active" : ""}`} onClick={() => onViewChange("workspace")}>
           <AppstoreOutlined />
           <span>工作台</span>
@@ -164,13 +126,13 @@ export function Sidebar({
           <LockOutlined />
           <span>会员中心</span>
         </button>
-        <button className={`nav-item${activeView === "account" ? " active" : ""}`} onClick={() => onViewChange("account")}>
-          <UserOutlined />
-          <span>账号</span>
+        <button className={`nav-item${activeView === "wechat" ? " active" : ""}`} onClick={() => onViewChange("wechat")}>
+          <MessageOutlined />
+          <span>公众号</span>
         </button>
         <button className={`nav-item${activeView === "prompt" ? " active" : ""}`} onClick={() => onViewChange("prompt")}>
           <BulbOutlined />
-          <span>提示词</span>
+          <span>提示词词库</span>
         </button>
         <button className={`nav-item${activeView === "settings" ? " active" : ""}`} onClick={() => onViewChange("settings")}>
           <SettingOutlined />
@@ -190,12 +152,14 @@ export function Sidebar({
         <div className="footer-detail-row">
           <span className={`footer-detail-val footer-membership-pill ${membershipToneClass}`}>{membershipLabel}</span>
         </div>
-        {membership?.isActive ? (
-          <div className="footer-thumb-status">
-            <div className="footer-thumb-dot ok" />
-            <span>会员权益已激活</span>
-          </div>
-        ) : null}
+        <div className="footer-thumb-status-slot">
+          {membership?.isActive ? (
+            <div className="footer-thumb-status">
+              <div className="footer-thumb-dot ok" />
+              <span>会员权益已激活</span>
+            </div>
+          ) : null}
+        </div>
 
         <div className="footer-quota-card">
           <div className="footer-quota-head">
@@ -204,9 +168,9 @@ export function Sidebar({
           </div>
 
           <div className="footer-quota-item">
-            {textRefreshLine ? (
-              <div className="footer-quota-refresh-meta footer-quota-refresh-meta-text">{textRefreshLine}</div>
-            ) : null}
+            <div className="footer-quota-refresh-meta footer-quota-refresh-meta-text">
+              {textRefreshLine ?? ""}
+            </div>
             <div className="footer-quota-title-row">
               <span className="footer-quota-title-text">{textPeriodShort}</span>
               <strong>{textLimit > 0 ? `${textUsed} / ${textLimit}` : "-- / --"}</strong>
@@ -217,9 +181,9 @@ export function Sidebar({
           </div>
 
           <div className="footer-quota-item">
-            {imageRefreshLine ? (
-              <div className="footer-quota-refresh-meta footer-quota-refresh-meta-image">{imageRefreshLine}</div>
-            ) : null}
+            <div className="footer-quota-refresh-meta footer-quota-refresh-meta-image">
+              {imageRefreshLine ?? ""}
+            </div>
             <div className="footer-quota-title-row">
               <span className="footer-quota-title-text">{imagePeriodShort}</span>
               <strong>{imageLimit > 0 ? `${imageUsed} / ${imageLimit}` : "-- / --"}</strong>
@@ -233,7 +197,7 @@ export function Sidebar({
         <button className="sidebar-logout-btn" onClick={onLogout}>
           退出登录
         </button>
-        <div className="footer-mini-account">当前公众号：{activeAccount?.name || "未命名账号"}</div>
+        <div className="footer-mini-account">工作台当前公众号：{activeAccount?.name || "未选择"}</div>
       </div>
     </aside>
   );

@@ -10,25 +10,42 @@ import type {
   ImageGenerateResponse,
   MembershipPlan,
   ModelConfig,
+  ReferenceFocus,
+  ReferenceLevel,
+  RewriteGoal,
   UploadThumbResponse,
-  UserQuotaSummary,
   UserMembership,
+  UserQuotaSummary,
+  WechatAccount,
 } from "./types";
 
 import { getOrCreateDeviceId } from "./device-id";
+import { encryptWechatAppSecretForTransport } from "./wechat-account-transport-crypto";
 
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 const DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 
-const DE_AI_TONE_INSTRUCTION = `【去 AI 味硬性规则，必须严格遵守，优先级高于其他风格设定。
-1. 禁止使用典型 AI 套路表达，如“首先/其次/最后”“综上所述”“不难发现”“由此可见”。
-2. 不要用模板化三段论，不要整篇都像列提纲。
-3. 句子长短要有变化，允许出现非常短的句子。
-4. 不要每个小标题都硬凑三点。
-5. 观点要具体，少说空泛正确的话。
-6. 结尾不要升华，不要喊口号，用一个具体画面或一句轻一点的话收住。
-7. 小标题要具体，不要“核心逻辑/关键要点”这种空标题。
-请把以上规则当作底线，在不违背主题要求的前提下，写出像真人自然写出来的公众号文章。`;
+const REWRITE_GOAL_LABELS: Record<RewriteGoal, string> = {
+  new_article: "重写为新文章",
+  new_angle: "换个切入角度",
+  more_conversational: "更口语化",
+  more_actionable: "更可执行",
+};
+
+const REFERENCE_FOCUS_LABELS: Record<ReferenceFocus, string> = {
+  mixed: "综合参考",
+  structure: "重点参考结构",
+  tone: "重点参考语气",
+  opening: "重点参考开头",
+};
+
+const REFERENCE_LEVEL_LABELS: Record<ReferenceLevel, string> = {
+  low: "轻参考",
+  medium: "中参考",
+  high: "强参考",
+};
+
+const DE_AI_TONE_INSTRUCTION = `我希望文本略有点生涩和稚嫩，用那种中文并不是很精通的人的语气撰写这个文本，稍微学术一点，态度端正一点，更多体现在语言上的大白话`;
 
 /** 发往模型的「规则/系统指令」类文本字符上限（UTF-16 码元，与 String.length 一致），所有组装入口在此处截断且不可跳过。 */
 const AI_RULE_INSTRUCTIONS_MAX_CHARS = 5000;
@@ -82,7 +99,7 @@ export async function backendHealthcheck(baseUrl: string): Promise<HealthcheckRe
 
 export async function registerAccount(
   baseUrl: string,
-  payload: { email: string; password: string; displayName: string },
+  payload: { email: string; password: string; displayName: string; inviteCode: string },
 ): Promise<{ user: AuthUser }> {
   const deviceId = getOrCreateDeviceId();
   const response = await fetch(`${baseUrl}/v1/auth/register`, {
@@ -183,33 +200,41 @@ export async function checkoutMembership(
   };
 }
 
+function buildPrompts(payload: GeneratePayload) {
+  const defaultRole = "";
+  const primaryRule = (payload.systemPrompt?.trim() || defaultRole).trim() || defaultRole;
+  const [ruleBlockSystem, ruleBlockDeAi] = enforceTwoPartAiRules(
+    primaryRule,
+    DE_AI_TONE_INSTRUCTION,
+    AI_RULE_INSTRUCTIONS_MAX_CHARS,
+  );
+
+  const systemPromptParts = [ruleBlockSystem, ruleBlockDeAi].filter((s) => s.length > 0);
+  const systemPromptRaw = systemPromptParts.join("\n\n");
+  const systemPrompt = clampAiInstructionString(systemPromptRaw, AI_RULE_INSTRUCTIONS_MAX_CHARS);
+  const userPrompt = buildDirectUserPrompt(payload);
+
+  return { systemPrompt, userPrompt };
+}
+
 export function buildGeneratePayload(payload: GeneratePayload) {
-  const trimmedSystem = payload.systemPrompt?.trim();
+  const { systemPrompt, userPrompt } = buildPrompts(payload);
   return {
-    topic: payload.topic,
-    audience: payload.audience || undefined,
-    style: payload.style || undefined,
+    system_prompt: systemPrompt,
+    user_prompt: userPrompt,
     length: payload.length,
-    mode: payload.mode,
-    system_prompt: trimmedSystem
-      ? clampAiInstructionString(trimmedSystem, AI_RULE_INSTRUCTIONS_MAX_CHARS)
-      : undefined,
+    mode: payload.mode || undefined,
     creation_mode: payload.creationMode,
-    source_article: payload.sourceArticle || undefined,
-    rewrite_goal: payload.rewriteGoal,
-    reference_focus: payload.referenceFocus,
-    reference_level: payload.referenceLevel,
-    expression_mode: payload.expressionMode,
     enable_web_search: payload.enableWebSearch ?? undefined,
   };
 }
 
-function buildExpressionRequirement(expressionMode: GeneratePayload["expressionMode"]) {
-  const mapping: Record<GeneratePayload["expressionMode"], string> = {
-    standard: "保持自然、清晰、直接的公众号表达。",
-    conversational: "整体更口语化，像在和读者聊天。",
-    de_ai: "明显降低 AI 腔，避免模板化总结口吻。",
-    opinionated: "观点更鲜明，但保持克制，不要夸张。",
+function buildExpressionRequirement(expressionMode: NonNullable<GeneratePayload["expressionMode"]>) {
+  const mapping: Record<NonNullable<GeneratePayload["expressionMode"]>, string> = {
+    standard: "通俗易懂，大白话，不装文化人。",
+    conversational: "就像咱们现在面对面聊天一样，极度口语化，多用短促的句子。",
+    de_ai: "彻底抛弃AI腔调，要有血有肉有情绪，多写具体的真实生活场景。",
+    opinionated: "情绪极度饱满，爱憎分明，该激动就激动，带入强烈的个人主观色彩。",
   };
   return mapping[expressionMode];
 }
@@ -223,8 +248,8 @@ function buildLengthDescription(length: GeneratePayload["length"]) {
   return mapping[length];
 }
 
-function buildModeDescription(mode: GeneratePayload["mode"]) {
-  const mapping: Record<GeneratePayload["mode"], string> = {
+function buildModeDescription(mode: NonNullable<GeneratePayload["mode"]>) {
+  const mapping: Record<NonNullable<GeneratePayload["mode"]>, string> = {
     standard: "标准公众号干货文章。",
     story: "故事化表达，增强代入感。",
     case_study: "案例拆解风格，强调具体案例。",
@@ -238,15 +263,15 @@ function buildDirectUserPrompt(payload: GeneratePayload) {
   if (payload.creationMode === "rewrite") {
     return [
       "请基于下面的参考文章，写一篇新的微信公众号文章。",
-      `改写目标：${payload.rewriteGoal}`,
-      `参考重点：${payload.referenceFocus}`,
-      `参考强度：${payload.referenceLevel}`,
+      payload.rewriteGoal ? `改写目标：${REWRITE_GOAL_LABELS[payload.rewriteGoal]}` : "",
+      payload.referenceFocus ? `参考重点：${REFERENCE_FOCUS_LABELS[payload.referenceFocus]}` : "",
+      payload.referenceLevel ? `参考强度：${REFERENCE_LEVEL_LABELS[payload.referenceLevel]}` : "",
       `文章长度：${buildLengthDescription(payload.length)}`,
-      `写作模式：${buildModeDescription(payload.mode)}`,
+      payload.mode ? `写作模式：${buildModeDescription(payload.mode)}` : "",
       payload.topic ? `主题：${payload.topic}` : "",
       payload.audience ? `目标读者：${payload.audience}` : "",
       payload.style ? `风格偏好：${payload.style}` : "",
-      `表达处理：${buildExpressionRequirement(payload.expressionMode)}`,
+      payload.expressionMode ? `表达处理：${buildExpressionRequirement(payload.expressionMode)}` : "",
       "",
       "参考文章如下：",
       payload.sourceArticle || "",
@@ -258,13 +283,13 @@ function buildDirectUserPrompt(payload: GeneratePayload) {
   }
 
   return [
-    "请根据下面的信息，生成一篇微信公众号文章初稿。",
+    "请根据下面的信息，生成一篇微信公众号文章。",
     `主题：${payload.topic}`,
     payload.audience ? `目标读者：${payload.audience}` : "",
     payload.style ? `风格偏好：${payload.style}` : "",
     `文章长度：${buildLengthDescription(payload.length)}`,
-    `写作模式：${buildModeDescription(payload.mode)}`,
-    `表达处理：${buildExpressionRequirement(payload.expressionMode)}`,
+    payload.mode ? `写作模式：${buildModeDescription(payload.mode)}` : "",
+    payload.expressionMode ? `表达处理：${buildExpressionRequirement(payload.expressionMode)}` : "",
     "",
     "请直接输出最终 Markdown 成稿，不要输出分析过程。",
   ]
@@ -273,14 +298,7 @@ function buildDirectUserPrompt(payload: GeneratePayload) {
 }
 
 function buildRequestBody(payload: GeneratePayload, stream: boolean) {
-  const defaultRole =
-    "你是一名擅长微信公众号写作的内容编辑，请输出适合直接发布或继续润色的 Markdown。";
-  const primaryRule = (payload.systemPrompt?.trim() || defaultRole).trim() || defaultRole;
-  const [ruleBlockSystem, ruleBlockDeAi] = enforceTwoPartAiRules(
-    primaryRule,
-    DE_AI_TONE_INSTRUCTION,
-    AI_RULE_INSTRUCTIONS_MAX_CHARS,
-  );
+  const { systemPrompt, userPrompt } = buildPrompts(payload);
 
   return {
     model: payload.apiModel,
@@ -290,15 +308,11 @@ function buildRequestBody(payload: GeneratePayload, stream: boolean) {
         content: [
           {
             type: "input_text",
-            text: ruleBlockSystem,
+            text: systemPrompt,
           },
           {
             type: "input_text",
-            text: ruleBlockDeAi,
-          },
-          {
-            type: "input_text",
-            text: buildDirectUserPrompt(payload),
+            text: userPrompt,
           },
         ],
       },
@@ -466,7 +480,7 @@ export async function generateArticle(
     meta: {
       model: string;
       length: GeneratePayload["length"];
-      mode: GeneratePayload["mode"];
+      mode?: GeneratePayload["mode"];
       creation_mode: GeneratePayload["creationMode"];
     };
     quota?: UserQuotaSummary;
@@ -643,4 +657,94 @@ export async function updateModelConfig(baseUrl: string, token: string, config: 
 
   const data = (await response.json()) as { config: ModelConfig };
   return data.config;
+}
+
+export async function fetchUserPrompts(baseUrl: string, token: string): Promise<{ prompts: any[] }> {
+  const response = await fetch(`${baseUrl}/v1/prompts`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) await parseError(response);
+  return response.json();
+}
+
+export async function createUserPrompt(baseUrl: string, token: string, payload: { name: string; content: string }): Promise<{ prompt: any }> {
+  const response = await fetch(`${baseUrl}/v1/prompts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) await parseError(response);
+  return response.json();
+}
+
+export async function updateUserPrompt(baseUrl: string, token: string, promptId: string, payload: { name: string; content: string }): Promise<{ prompt: any }> {
+  const response = await fetch(`${baseUrl}/v1/prompts/${promptId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) await parseError(response);
+  return response.json();
+}
+
+export async function deleteUserPrompt(baseUrl: string, token: string, promptId: string): Promise<{ ok: boolean }> {
+  const response = await fetch(`${baseUrl}/v1/prompts/${promptId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) await parseError(response);
+  return response.json();
+}
+
+export async function fetchUserWechatAccounts(
+  baseUrl: string,
+  token: string,
+): Promise<{ accounts: WechatAccount[]; activeAccountId: string }> {
+  const response = await fetch(`${baseUrl}/v1/wechat-accounts`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) await parseError(response);
+  return response.json();
+}
+
+export async function fetchWechatAccountsEncryptionKey(
+  baseUrl: string,
+  token: string,
+): Promise<{ publicKeyPem: string }> {
+  const response = await fetch(`${baseUrl}/v1/wechat-accounts/encryption-key`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) await parseError(response);
+  return response.json();
+}
+
+export async function saveUserWechatAccounts(
+  baseUrl: string,
+  token: string,
+  payload: { accounts: WechatAccount[]; activeAccountId: string },
+): Promise<{ accounts: WechatAccount[]; activeAccountId: string }> {
+  const { publicKeyPem } = await fetchWechatAccountsEncryptionKey(baseUrl, token);
+
+  const accountsPayload = await Promise.all(
+    payload.accounts.map(async (a) => ({
+      id: a.id,
+      name: a.name,
+      appId: a.appId,
+      thumbMediaId: a.thumbMediaId,
+      appSecretEncrypted: a.appSecret.trim()
+        ? await encryptWechatAppSecretForTransport(a.appSecret, publicKeyPem)
+        : "",
+    })),
+  );
+
+  const response = await fetch(`${baseUrl}/v1/wechat-accounts`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      accounts: accountsPayload,
+      activeAccountId: payload.activeAccountId,
+    }),
+  });
+  if (!response.ok) await parseError(response);
+  return response.json();
 }

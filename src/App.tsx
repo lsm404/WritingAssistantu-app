@@ -14,6 +14,12 @@ import {
   registerAccount,
   sendWechatDraft,
   uploadWechatThumb,
+  fetchUserPrompts,
+  createUserPrompt,
+  updateUserPrompt,
+  deleteUserPrompt,
+  fetchUserWechatAccounts,
+  saveUserWechatAccounts,
 } from "./lib/openclaw-api";
 import { getRuntimeInfo } from "./lib/tauri";
 import type {
@@ -27,31 +33,29 @@ import type {
   WechatAccount,
 } from "./lib/types";
 import {
-  audienceOptions,
-  defaultAccounts,
+  emptyWechatAccount,
   defaultArticleDraft,
   defaultDraftMeta,
   defaultPromptSlots,
-  expressionModeOptions,
   extractTitleFromMarkdown,
   type DraftMeta,
-  imageCountOptions,
-  lengthOptions,
-  modeOptions,
-  parseStoredValue,
   type PromptSlot,
-  referenceFocusOptions,
-  referenceLevelOptions,
-  rewriteGoalOptions,
-  type SidebarView,
-  styleOptions,
   summarizeMarkdown,
+  type SidebarView,
+  workspaceAudienceOptions,
+  workspaceExpressionModeOptions,
+  workspaceImageCountOptions,
+  workspaceModeOptions,
+  workspaceReferenceFocusOptions,
+  workspaceReferenceLevelOptions,
+  workspaceRewriteGoalOptions,
+  workspaceStyleOptions,
+  WORKSPACE_TOPIC_MAX_CHARS,
 } from "./lib/app-ui";
 import { Sidebar } from "./components/Sidebar";
-import { TopTemplateTabs } from "./components/TopTemplateTabs";
 import { WorkspacePage } from "./components/pages/WorkspacePage";
 import { PromptPage } from "./components/pages/PromptPage";
-import { AccountPage } from "./components/pages/AccountPage";
+import { WechatAccountLibraryPage } from "./components/pages/WechatAccountLibraryPage";
 import { ModelPage } from "./components/pages/ModelPage";
 import { PlaceholderPage } from "./components/pages/PlaceholderPage";
 import { ImagePage } from "./components/pages/ImagePage";
@@ -64,21 +68,31 @@ import { relaunch } from '@tauri-apps/plugin-process';
 const MEMBER_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 const CONTENT_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 
-const storageKeys = {
-  authToken: "openclaw.authToken",
-  accounts: "openclaw.wechatAccounts",
-  activeAccountId: "openclaw.activeAccountId",
-  promptSlots: "openclaw.promptSlots",
-  activePromptId: "openclaw.activePromptId",
-  articleDraft: "openclaw.articleDraft",
-  resultMarkdown: "openclaw.resultMarkdown",
-  draftMeta: "openclaw.draftMeta",
-} as const;
+const AUTH_TOKEN_STORAGE_KEY = "openclaw.authToken";
+
+/** 历史版本与本应用曾写入的本地草稿/公众号缓存，启动时清除（不再使用 localStorage 持久化这些内容） */
+const LEGACY_LOCAL_CACHE_KEYS = [
+  "openclaw.wechatAccounts",
+  "openclaw.activeAccountId",
+  "openclaw.articleDraft",
+  "openclaw.resultMarkdown",
+  "openclaw.draftMeta",
+  "openclaw.promptDefaultOverride",
+  "openclaw.activePromptId",
+] as const;
+
+function pickPromptCreatedAt(p: Record<string, unknown>): string | undefined {
+  const raw = p.created_at ?? p.createdAt;
+  return typeof raw === "string" && raw.trim() ? raw : undefined;
+}
 
 const REGISTER_ERROR_HINT: Record<string, string> = {
   REGISTRATION_IP_LIMIT: "当前 IP 在近期注册次数过多，请稍后再试。",
   REGISTRATION_SUBNET_LIMIT: "当前网络环境注册次数过多，请稍后再试。",
   REGISTRATION_DEVICE_LIMIT: "本设备注册账号数已达上限，请使用已有账号登录。",
+  INVALID_INVITE_CODE: "请输入 8 位字母邀请码（可含空格，系统会自动去掉非字母字符）。",
+  INVITE_CODE_NOT_FOUND: "邀请码无效，请向代理人或客服索取有效邀请码。",
+  AGENT_DISABLED: "该邀请码已停用，请联系客服。",
 };
 
 function getMembershipToneClass(planCode?: string | null) {
@@ -105,7 +119,7 @@ function InnerApp() {
   const [authReady, setAuthReady] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authLoading, setAuthLoading] = useState(false);
-  const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(storageKeys.authToken) || "");
+  const [authToken, setAuthToken] = useState(() => window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [membership, setMembership] = useState<UserMembership | null>(null);
   const [quota, setQuota] = useState<UserQuotaSummary | null>(null);
@@ -116,29 +130,23 @@ function InnerApp() {
     email: "",
     password: "",
     displayName: "",
+    inviteCode: "",
   });
-  const [accounts, setAccounts] = useState<WechatAccount[]>(() =>
-    parseStoredValue(storageKeys.accounts, defaultAccounts()),
-  );
-  const [activeAccountId, setActiveAccountId] = useState(
-    () => window.localStorage.getItem(storageKeys.activeAccountId) || "",
-  );
-  const [promptSlots, setPromptSlots] = useState<PromptSlot[]>(() =>
-    parseStoredValue(storageKeys.promptSlots, defaultPromptSlots()),
-  );
-  const [activePromptId, setActivePromptId] = useState(
-    () => window.localStorage.getItem(storageKeys.activePromptId) || "",
-  );
-  const [articleDraft, setArticleDraft] = useState<GeneratePayload>(() =>
-    parseStoredValue(storageKeys.articleDraft, defaultArticleDraft()),
-  );
-  const [draftMeta, setDraftMeta] = useState<DraftMeta>(() =>
-    parseStoredValue(storageKeys.draftMeta, defaultDraftMeta()),
-  );
-  const [resultMarkdown, setResultMarkdown] = useState(
-    () => window.localStorage.getItem(storageKeys.resultMarkdown) || "",
-  );
-  const [serviceStatus, setServiceStatus] = useState("连接中");
+  const [accounts, setAccounts] = useState<WechatAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState("");
+  const accountsRef = useRef<WechatAccount[]>(accounts);
+  const activeAccountIdRef = useRef(activeAccountId);
+  accountsRef.current = accounts;
+  activeAccountIdRef.current = activeAccountId;
+  const [promptSlots, setPromptSlots] = useState<PromptSlot[]>(() => defaultPromptSlots());
+  const [activePromptId, setActivePromptId] = useState("prompt-default");
+  const [articleDraft, setArticleDraft] = useState<GeneratePayload>(() => defaultArticleDraft());
+  const [draftMeta, setDraftMeta] = useState<DraftMeta>(() => defaultDraftMeta());
+  const [resultMarkdown, setResultMarkdown] = useState("");
+  useEffect(() => {
+    getRuntimeInfo().then(setRuntimeInfo);
+    void backendHealthcheck(MEMBER_BACKEND_BASE_URL).catch(() => undefined);
+  }, []);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [isSendingDraft, setIsSendingDraft] = useState(false);
@@ -147,14 +155,20 @@ function InnerApp() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [accountDialogMode, setAccountDialogMode] = useState<"create" | "edit">("create");
-  const [accountForm, setAccountForm] = useState<WechatAccount>(defaultAccounts()[0]);
-  const [lastSaveTime, setLastSaveTime] = useState("");
+  const [accountForm, setAccountForm] = useState<WechatAccount>(() => emptyWechatAccount());
+  /** 用于在切换 Tab 时同步 systemPrompt，避免与 persisted draft 的错位 guard 阻止显示通用模板内容 */
+  const prevPromptIdRef = useRef<string | null>(null);
+  /** 公众号卡片页「上传封面」时指定目标账号 id（非弹窗编辑态） */
+  const coverPickAccountIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    getRuntimeInfo().then(setRuntimeInfo);
-    backendHealthcheck(MEMBER_BACKEND_BASE_URL)
-      .then((result) => setServiceStatus(result.ok ? "服务正常" : "服务异常"))
-      .catch(() => setServiceStatus("连接失败"));
+    try {
+      for (const k of LEGACY_LOCAL_CACHE_KEYS) {
+        window.localStorage.removeItem(k);
+      }
+    } catch {
+      /* noop */
+    }
   }, []);
 
   useEffect(() => {
@@ -187,7 +201,7 @@ function InnerApp() {
   }, []);
 
   useEffect(() => {
-    const token = window.localStorage.getItem(storageKeys.authToken) || "";
+    const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "";
     if (!token) {
       setAuthReady(true);
       return;
@@ -201,7 +215,7 @@ function InnerApp() {
         setQuota(result.quota);
       })
       .catch(() => {
-        window.localStorage.removeItem(storageKeys.authToken);
+        window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
         setAuthToken("");
         setCurrentUser(null);
         setMembership(null);
@@ -210,11 +224,58 @@ function InnerApp() {
       .finally(() => setAuthReady(true));
   }, []);
 
+  const loadPromptsFromBackend = async (token: string) => {
+    try {
+      const data = await fetchUserPrompts(MEMBER_BACKEND_BASE_URL, token);
+      const customPrompts = data.prompts.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        defaultName: p.name,
+        content: p.content,
+        defaultContent: p.content,
+        createdAt: pickPromptCreatedAt(p as Record<string, unknown>),
+      }));
+      setPromptSlots([...defaultPromptSlots(), ...customPrompts]);
+    } catch (e) {
+      console.error("Failed to load prompts", e);
+    }
+  };
+
+  useEffect(() => {
+    if (authToken && currentUser) {
+      loadPromptsFromBackend(authToken);
+    } else {
+      setPromptSlots(defaultPromptSlots());
+    }
+  }, [authToken, currentUser]);
+
+  useEffect(() => {
+    if (!authToken || !currentUser) return;
+    let cancelled = false;
+    void fetchUserWechatAccounts(MEMBER_BACKEND_BASE_URL, authToken)
+      .then(async (remote) => {
+        if (cancelled) return;
+        if (remote.accounts?.length) {
+          setAccounts(remote.accounts);
+          const aid =
+            remote.activeAccountId && remote.accounts.some((a) => a.id === remote.activeAccountId)
+              ? remote.activeAccountId
+              : remote.accounts[0].id;
+          setActiveAccountId(aid);
+        } else {
+          setAccounts([]);
+          setActiveAccountId("");
+        }
+      })
+      .catch((e) => console.error("fetch wechat accounts failed", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, currentUser?.id]);
+
   useEffect(() => {
     if (!accounts.length) {
-      const fallback = defaultAccounts();
-      setAccounts(fallback);
-      setActiveAccountId(fallback[0].id);
+      if (activeAccountId !== "") setActiveAccountId("");
       return;
     }
     if (!accounts.some((account) => account.id === activeAccountId)) {
@@ -235,22 +296,10 @@ function InnerApp() {
   }, [promptSlots, activePromptId]);
 
   useEffect(() => {
-    window.localStorage.setItem(storageKeys.accounts, JSON.stringify(accounts));
-    window.localStorage.setItem(storageKeys.activeAccountId, activeAccountId);
-    window.localStorage.setItem(storageKeys.promptSlots, JSON.stringify(promptSlots));
-    window.localStorage.setItem(storageKeys.activePromptId, activePromptId);
-    const { apiKey: _k, apiModel: _m, apiBaseUrl: _b, ...draftToSave } = articleDraft;
-    window.localStorage.setItem(storageKeys.articleDraft, JSON.stringify(draftToSave));
-    window.localStorage.setItem(storageKeys.draftMeta, JSON.stringify(draftMeta));
-    window.localStorage.setItem(storageKeys.resultMarkdown, resultMarkdown);
-    setLastSaveTime(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-  }, [accounts, activeAccountId, promptSlots, activePromptId, articleDraft, draftMeta, resultMarkdown]);
-
-  useEffect(() => {
     if (authToken) {
-      window.localStorage.setItem(storageKeys.authToken, authToken);
+      window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, authToken);
     } else {
-      window.localStorage.removeItem(storageKeys.authToken);
+      window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
     }
   }, [authToken]);
 
@@ -272,9 +321,28 @@ function InnerApp() {
   }, [activeView, authToken, currentUser?.id]);
 
   const activeAccount = useMemo(
-    () => accounts.find((account) => account.id === activeAccountId) ?? accounts[0],
+    () => accounts.find((account) => account.id === activeAccountId),
     [accounts, activeAccountId],
   );
+
+  const persistWechatAccountsNow = async (nextAccounts: WechatAccount[], nextActiveId: string) => {
+    if (!authToken || !currentUser) return;
+    try {
+      await saveUserWechatAccounts(MEMBER_BACKEND_BASE_URL, authToken, {
+        accounts: nextAccounts,
+        activeAccountId: nextActiveId,
+      });
+    } catch (e) {
+      console.error("persist wechat accounts failed", e);
+      message.warning("公众号账号未能同步到服务器");
+    }
+  };
+
+  const handleActiveAccountChange = (id: string) => {
+    setActiveAccountId(id);
+    void persistWechatAccountsNow(accountsRef.current, id);
+  };
+
   const membershipToneClass = useMemo(
     () => getMembershipToneClass(membership?.plan?.code),
     [membership?.plan?.code],
@@ -287,21 +355,22 @@ function InnerApp() {
 
   useEffect(() => {
     if (!activePrompt) return;
-    setArticleDraft((current) => {
-      if (current.systemPrompt.trim() && current.systemPrompt !== activePrompt.content) {
-        return current;
-      }
-      return { ...current, systemPrompt: activePrompt.content };
-    });
-  }, [activePrompt]);
+    const prev = prevPromptIdRef.current;
+    prevPromptIdRef.current = activePromptId;
 
-  useEffect(() => {
-    setArticleDraft((current) => ({
-      ...current,
-      audience: current.audience || "大学生",
-      style: current.style || "专业理性",
-    }));
-  }, []);
+    if (prev === null) {
+      setArticleDraft((current) => {
+        const draftPrompt = (current.systemPrompt ?? "").trim();
+        if (draftPrompt) return current;
+        return { ...current, systemPrompt: activePrompt.content };
+      });
+      return;
+    }
+
+    if (prev !== activePromptId) {
+      setArticleDraft((current) => ({ ...current, systemPrompt: activePrompt.content }));
+    }
+  }, [activePromptId, activePrompt]);
 
   const setArticleField = <K extends keyof GeneratePayload>(key: K, value: GeneratePayload[K]) => {
     setArticleDraft((current) => ({ ...current, [key]: value }));
@@ -309,22 +378,131 @@ function InnerApp() {
 
   const updateActiveAccount = (patch: Partial<WechatAccount>) => {
     if (!activeAccount) return;
-    setAccounts((current) =>
-      current.map((account) => (account.id === activeAccount.id ? { ...account, ...patch } : account)),
-    );
+    setAccounts((current) => {
+      const next = current.map((account) =>
+        account.id === activeAccount.id ? { ...account, ...patch } : account,
+      );
+      void persistWechatAccountsNow(next, activeAccount.id);
+      return next;
+    });
   };
 
-  const updateActivePrompt = (patch: Partial<PromptSlot>) => {
+  const updateActivePrompt = async (patch: Partial<PromptSlot>) => {
     if (!activePrompt) return;
-    setPromptSlots((current) =>
-      current.map((slot) => (slot.id === activePrompt.id ? { ...slot, ...patch } : slot)),
-    );
+    if (activePrompt.id === "prompt-default") {
+      if (patch.name !== undefined && patch.name !== activePrompt.name) {
+        message.warning("通用模板不能修改名称，但您可以新建提示词");
+      }
+      if (patch.content !== undefined) {
+        setPromptSlots((current) =>
+          current.map((slot) =>
+            slot.id === "prompt-default" ? { ...slot, content: patch.content as string } : slot,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      const nextName = patch.name ?? activePrompt.name;
+      const nextContent = patch.content ?? activePrompt.content;
+      await updateUserPrompt(MEMBER_BACKEND_BASE_URL, authToken, activePrompt.id, { name: nextName, content: nextContent });
+      setPromptSlots((current) =>
+        current.map((slot) => (slot.id === activePrompt.id ? { ...slot, name: nextName, content: nextContent } : slot)),
+      );
+    } catch (e) {
+      message.error("保存提示词失败");
+    }
+  };
+
+  const createNewPrompt = async (name: string, content: string): Promise<boolean> => {
+    try {
+      const res = await createUserPrompt(MEMBER_BACKEND_BASE_URL, authToken, { name, content });
+      const raw = res.prompt as Record<string, unknown>;
+      const id = String(raw.id ?? "").trim();
+      if (!id) {
+        message.error("保存提示词失败");
+        return false;
+      }
+      const newPrompt: PromptSlot = {
+        id,
+        name: String(raw.name ?? name),
+        defaultName: String(raw.name ?? name),
+        content: String(raw.content ?? content),
+        defaultContent: String(raw.content ?? content),
+        createdAt: pickPromptCreatedAt(raw) ?? new Date().toISOString(),
+      };
+      setPromptSlots((current) => [...current, newPrompt]);
+      setActivePromptId(newPrompt.id);
+      setArticleField("systemPrompt", newPrompt.content);
+      message.success("提示词已保存");
+      return true;
+    } catch (e) {
+      message.error("保存提示词失败");
+      return false;
+    }
+  };
+
+  const savePromptById = async (slotId: string, name: string, content: string): Promise<boolean> => {
+    const slot = promptSlots.find((s) => s.id === slotId);
+    if (!slot) return false;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      message.warning("请输入提示词名称");
+      return false;
+    }
+    if (slotId === "prompt-default") {
+      setPromptSlots((current) =>
+        current.map((s) => (s.id === "prompt-default" ? { ...s, content } : s)),
+      );
+      if (activePromptId === "prompt-default") {
+        setArticleField("systemPrompt", content);
+      }
+      message.success("已保存");
+      return true;
+    }
+    try {
+      await updateUserPrompt(MEMBER_BACKEND_BASE_URL, authToken, slotId, {
+        name: trimmedName,
+        content,
+      });
+      setPromptSlots((current) =>
+        current.map((s) => (s.id === slotId ? { ...s, name: trimmedName, content } : s)),
+      );
+      if (activePromptId === slotId) {
+        setArticleField("systemPrompt", content);
+      }
+      message.success("提示词已保存");
+      return true;
+    } catch {
+      message.error("保存提示词失败");
+      return false;
+    }
+  };
+
+  const deletePromptById = async (id: string) => {
+    if (id === "prompt-default") {
+      message.warning("无法删除通用模板");
+      return;
+    }
+    try {
+      await deleteUserPrompt(MEMBER_BACKEND_BASE_URL, authToken, id);
+      const filtered = promptSlots.filter((p) => p.id !== id);
+      setPromptSlots(filtered);
+      if (activePromptId === id) {
+        setActivePromptId("prompt-default");
+        setArticleField("systemPrompt", filtered[0]?.content ?? "");
+      }
+      message.success("提示词已删除");
+    } catch (e) {
+      message.error("删除提示词失败");
+    }
   };
 
   const switchPrompt = (id: string) => {
     setActivePromptId(id);
     const target = promptSlots.find((slot) => slot.id === id);
-    if (target) setArticleField("systemPrompt", target.content);
+    if (target) setArticleField("systemPrompt", target.content ?? "");
   };
 
   const refreshCurrentUser = async (token: string) => {
@@ -450,6 +628,11 @@ function InnerApp() {
       return;
     }
 
+    if (authMode === "register" && !authForm.inviteCode.trim()) {
+      message.warning("请输入 8 位邀请码");
+      return;
+    }
+
     setAuthLoading(true);
     try {
       if (authMode === "register") {
@@ -457,6 +640,7 @@ function InnerApp() {
           email: authForm.email.trim(),
           password: authForm.password,
           displayName: authForm.displayName.trim(),
+          inviteCode: authForm.inviteCode.trim(),
         });
         message.success("注册成功，请直接登录");
         setAuthMode("login");
@@ -486,6 +670,11 @@ function InnerApp() {
     setCurrentUser(null);
     setMembership(null);
     setQuota(null);
+    setAccounts([]);
+    setActiveAccountId("");
+    setArticleDraft(defaultArticleDraft());
+    setDraftMeta(defaultDraftMeta());
+    setResultMarkdown("");
     setAuthForm((current) => ({ ...current, password: "" }));
     message.success("已退出登录");
   };
@@ -549,13 +738,14 @@ function InnerApp() {
     setAccountDialogOpen(true);
   };
 
-  const openEditAccountDialog = () => {
-    if (!activeAccount) {
-      message.warning("请先选择公众号账号");
+  const openEditAccountDialog = (account?: WechatAccount) => {
+    const target = account ?? activeAccount;
+    if (!target) {
+      message.warning("暂无公众号可编辑");
       return;
     }
     setAccountDialogMode("edit");
-    setAccountForm({ ...activeAccount });
+    setAccountForm({ ...target });
     setAccountDialogOpen(true);
   };
 
@@ -575,11 +765,19 @@ function InnerApp() {
     };
 
     if (accountDialogMode === "create") {
-      setAccounts((current) => [...current, payload]);
+      setAccounts((current) => {
+        const next = [...current, payload];
+        void persistWechatAccountsNow(next, payload.id);
+        return next;
+      });
       setActiveAccountId(payload.id);
       message.success("已新增公众号账号");
     } else {
-      setAccounts((current) => current.map((account) => (account.id === payload.id ? payload : account)));
+      setAccounts((current) => {
+        const next = current.map((account) => (account.id === payload.id ? payload : account));
+        void persistWechatAccountsNow(next, payload.id);
+        return next;
+      });
       setActiveAccountId(payload.id);
       message.success("已更新公众号账号");
     }
@@ -587,29 +785,18 @@ function InnerApp() {
     setAccountDialogOpen(false);
   };
 
-  const removeAccount = () => {
-    if (!activeAccount) return;
-    if (accounts.length === 1) {
-      message.warning("至少保留一个公众号账号");
-      return;
-    }
-    const nextAccounts = accounts.filter((account) => account.id !== activeAccount.id);
+  const removeAccountByTarget = (account: WechatAccount) => {
+    const nextAccounts = accounts.filter((a) => a.id !== account.id);
+    const nextId = activeAccountId === account.id ? nextAccounts[0]?.id ?? "" : activeAccountId;
     setAccounts(nextAccounts);
-    setActiveAccountId(nextAccounts[0]?.id ?? "");
-    message.success("已删除当前账号");
+    setActiveAccountId(nextId);
+    void persistWechatAccountsNow(nextAccounts, nextId);
+    message.success("已删除公众号账号");
   };
 
-  const resetPromptTemplate = () => {
-    if (!activePrompt) return;
-    const freshDefaults = defaultPromptSlots();
-    const matched = freshDefaults.find((slot) => slot.defaultName === activePrompt.defaultName) ?? freshDefaults[0];
-    updateActivePrompt({
-      name: matched.defaultName,
-      content: matched.defaultContent,
-      defaultContent: matched.defaultContent,
-    });
-    setArticleField("systemPrompt", matched.defaultContent);
-    message.success("已恢复默认提示词");
+  const requestCoverPickForAccount = (accountId: string) => {
+    coverPickAccountIdRef.current = accountId;
+    coverFileInputRef.current?.click();
   };
 
   const handleSourceFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -630,7 +817,14 @@ function InnerApp() {
     event.target.value = "";
     if (!file) return;
 
-    const uploadTarget = accountDialogOpen ? accountForm : activeAccount;
+    const pickedId = coverPickAccountIdRef.current;
+    coverPickAccountIdRef.current = null;
+
+    const uploadTarget = accountDialogOpen
+      ? accountForm
+      : pickedId
+        ? accounts.find((a) => a.id === pickedId) ?? activeAccount
+        : activeAccount;
     if (!uploadTarget) return;
 
     if (!uploadTarget.appId.trim() || !uploadTarget.appSecret.trim()) {
@@ -655,7 +849,12 @@ function InnerApp() {
       if (accountDialogOpen) {
         setAccountForm((current) => ({ ...current, thumbMediaId: result.thumbMediaId }));
       } else {
-        updateActiveAccount({ thumbMediaId: result.thumbMediaId });
+        const id = uploadTarget.id;
+        setAccounts((current) => {
+          const next = current.map((a) => (a.id === id ? { ...a, thumbMediaId: result.thumbMediaId } : a));
+          void persistWechatAccountsNow(next, activeAccountId);
+          return next;
+        });
       }
       message.success("封面图上传成功");
     } catch (error) {
@@ -666,7 +865,11 @@ function InnerApp() {
   };
 
   const handleGenerateArticle = async () => {
-    if (articleDraft.creationMode === "original" && !articleDraft.topic.trim()) {
+    if (articleDraft.topic.length > WORKSPACE_TOPIC_MAX_CHARS) {
+      message.warning(`主题请勿超过 ${WORKSPACE_TOPIC_MAX_CHARS} 字`);
+      return;
+    }
+    if (articleDraft.creationMode === "synthesized" && !articleDraft.topic.trim()) {
       message.warning("请先填写文章主题");
       return;
     }
@@ -698,7 +901,7 @@ function InnerApp() {
         authToken,
         {
           ...articleDraft,
-          systemPrompt: articleDraft.systemPrompt.trim() || activePrompt?.content || "",
+          systemPrompt: (articleDraft.systemPrompt ?? "").trim() || activePrompt?.content || "",
         },
         (delta) => {
           setResultMarkdown((prev) => prev + delta);
@@ -808,10 +1011,10 @@ function InnerApp() {
     switch (activeView) {
       case "membership":
         return "会员中心";
-      case "account":
-        return "账号配置";
+      case "wechat":
+        return "公众号";
       case "prompt":
-        return "提示词模板";
+        return "提示词词库";
       case "model":
         return "模型设置";
       case "image":
@@ -844,17 +1047,11 @@ function InnerApp() {
     <div className="app-container">
       <Sidebar
         activeView={activeView}
-        serviceStatus={serviceStatus}
         currentUser={currentUser}
         membership={membership}
         quota={quota}
-        accounts={accounts}
-        activeAccountId={activeAccountId}
         activeAccount={activeAccount}
         onViewChange={setActiveView}
-        onAccountChange={setActiveAccountId}
-        onAddAccount={openCreateAccountDialog}
-        onEditAccount={openEditAccountDialog}
         onLogout={handleLogout}
       />
 
@@ -894,10 +1091,6 @@ function InnerApp() {
         </header>
 
         {activeView === "workspace" ? (
-          <TopTemplateTabs promptSlots={promptSlots} activePromptId={activePromptId} onChange={switchPrompt} />
-        ) : null}
-
-        {activeView === "workspace" ? (
           <WorkspacePage
             articleDraft={articleDraft}
             resultMarkdown={resultMarkdown}
@@ -905,15 +1098,20 @@ function InnerApp() {
             isGenerating={isGenerating}
             isGeneratingImages={isGeneratingImages}
             isSendingDraft={isSendingDraft}
-            imageCountOptions={imageCountOptions}
-            lengthOptions={lengthOptions}
-            modeOptions={modeOptions}
-            expressionModeOptions={expressionModeOptions}
-            audienceOptions={audienceOptions}
-            styleOptions={styleOptions}
-            rewriteGoalOptions={rewriteGoalOptions}
-            referenceFocusOptions={referenceFocusOptions}
-            referenceLevelOptions={referenceLevelOptions}
+            imageCountOptions={workspaceImageCountOptions}
+            modeOptions={workspaceModeOptions}
+            expressionModeOptions={workspaceExpressionModeOptions}
+            audienceOptions={workspaceAudienceOptions}
+            styleOptions={workspaceStyleOptions}
+            rewriteGoalOptions={workspaceRewriteGoalOptions}
+            referenceFocusOptions={workspaceReferenceFocusOptions}
+            referenceLevelOptions={workspaceReferenceLevelOptions}
+            accounts={accounts}
+            activeAccountId={activeAccountId}
+            onAccountChange={handleActiveAccountChange}
+            promptSlots={promptSlots}
+            activePromptId={activePromptId}
+            onPromptChange={switchPrompt}
             onToggleSettings={() => setSettingsCollapsed((value) => !value)}
             onArticleFieldChange={setArticleField}
             onResultMarkdownChange={setResultMarkdown}
@@ -938,27 +1136,23 @@ function InnerApp() {
         {activeView === "prompt" ? (
           <PromptPage
             promptSlots={promptSlots}
-            activePromptId={activePromptId}
-            activePrompt={activePrompt}
-            systemPrompt={articleDraft.systemPrompt}
-            onPromptChange={switchPrompt}
-            onReset={resetPromptTemplate}
-            onPromptNameChange={(value) => updateActivePrompt({ name: value })}
-            onPromptContentChange={(value) => {
-              setArticleField("systemPrompt", value);
-              updateActivePrompt({ content: value });
-            }}
+            onSelectPrompt={switchPrompt}
+            onSavePrompt={savePromptById}
+            onCreatePrompt={createNewPrompt}
+            onDeletePrompt={deletePromptById}
           />
         ) : null}
 
-        {activeView === "account" ? (
-          <AccountPage
-            activeAccount={activeAccount}
+        {activeView === "wechat" ? (
+          <WechatAccountLibraryPage
+            accounts={accounts}
+            activeAccountId={activeAccountId}
             isUploadingCover={isUploadingCover}
+            onSelectAccount={handleActiveAccountChange}
             onAddAccount={openCreateAccountDialog}
-            onEditAccount={openEditAccountDialog}
-            onRemoveAccount={removeAccount}
-            onPickCover={() => coverFileInputRef.current?.click()}
+            onEditAccount={(a) => openEditAccountDialog(a)}
+            onRemoveAccount={removeAccountByTarget}
+            onPickCover={requestCoverPickForAccount}
           />
         ) : null}
 
@@ -991,10 +1185,10 @@ function InnerApp() {
         <footer className="footer">
           <div className="footer-left">
             <span className="footer-saved">
-              <CheckCircleFilled style={{ color: "#22c55e" }} />
-              已自动保存
+              <CheckCircleFilled style={{ color: "#94a3b8" }} />
+              草稿未写入本地
             </span>
-            <span>最近保存：{lastSaveTime || "刚刚"}</span>
+            <span>刷新页面或退出登录后，未导出的创作内容将清空</span>
           </div>
           <div className="footer-right">
             <span className="footer-tip-dot">•</span>
