@@ -5,7 +5,7 @@ import {
   RocketFilled,
   StarFilled,
 } from "@ant-design/icons";
-import { Button, Tag } from "antd";
+import { Button, Modal, Tag } from "antd";
 import type { MembershipPlan, UserMembership, UserQuotaSummary } from "../../lib/types";
 
 type Props = {
@@ -13,7 +13,8 @@ type Props = {
   membership: UserMembership | null;
   quota: UserQuotaSummary | null;
   loading: boolean;
-  activePlanCode: string;
+  activePlanCode: string | null;
+  accounts: any[];
   onCheckout: (planCode: string) => void;
 };
 
@@ -30,13 +31,13 @@ type PlanPreset = {
 
 const planPresets: PlanPreset[] = [
   {
-    code: "monthly_199",
+    code: "monthly_99",
     fallbackName: "基础月卡",
-    fallbackPriceLabel: "19.90",
+    fallbackPriceLabel: "9.90",
     icon: <FireFilled />,
     accentClass: "sun",
-    tagline: "轻量起步，适合先把日常创作跑起来",
-    features: ["每天 5 次文字创作", "每月 15 张图片额度", "图片额度用完后，文字仍可继续使用"],
+    tagline: "轻量起步，适合基础文字创作",
+    features: ["每天 5 次文字创作", "允许绑定 2 个公众号", "不支持 AI 生图功能"],
   },
   {
     code: "monthly_399",
@@ -46,7 +47,7 @@ const planPresets: PlanPreset[] = [
     accentClass: "sky",
     badge: "日常主力",
     tagline: "覆盖稳定更新频率，适合日常持续输出",
-    features: ["每天 10 次文字创作", "每月 35 张图片额度", "更适合公众号日更和多主题更新"],
+    features: ["每天 7 次文字创作", "每月 30 张图片额度", "允许绑定 5 个公众号"],
   },
   {
     code: "monthly_599",
@@ -55,7 +56,7 @@ const planPresets: PlanPreset[] = [
     icon: <StarFilled />,
     accentClass: "orange",
     tagline: "中高频创作更从容，效率和成本更平衡",
-    features: ["每天 15 次文字创作", "每月 50 张图片额度", "适合专题策划和批量内容创作"],
+    features: ["每天 15 次文字创作", "每月 60 张图片额度", "允许绑定 10 个公众号"],
   },
   {
     code: "monthly_990",
@@ -65,7 +66,7 @@ const planPresets: PlanPreset[] = [
     accentClass: "purple",
     badge: "最受欢迎",
     tagline: "高频深度使用场景，给重度创作留足空间",
-    features: ["每天 25 次文字创作", "每月 90 张图片额度", "更从容覆盖高频创作和多方向内容"],
+    features: ["每天 50 次文字创作", "每月 150 张图片额度", "不限制公众号绑定数量"],
   },
 ];
 
@@ -106,7 +107,7 @@ function getDisplayPlans(plans: MembershipPlan[]) {
   }));
 }
 
-export function MembershipPage({ plans, membership, quota, loading, activePlanCode, onCheckout }: Props) {
+export function MembershipPage({ plans, membership, quota, loading, activePlanCode, accounts, onCheckout }: Props) {
   const displayPlans = getDisplayPlans(plans);
   const currentPlanCode = membership?.isActive ? membership.plan.code : "";
 
@@ -168,7 +169,7 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
                   <div className="membership-plan-icon">{preset.icon}</div>
                   <div className="membership-plan-title-block">
                     <h3>{plan?.name ?? preset.fallbackName}</h3>
-                    <p>{preset.tagline}</p>
+                    <p>{plan?.tagline ?? preset.tagline}</p>
                   </div>
                 </div>
 
@@ -178,10 +179,17 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
                     <span className="membership-price-unit">元</span>
                     <span className="membership-price-cycle">/月</span>
                   </div>
+                  {/* {plan && (
+                    <div className="membership-quota-badge-row">
+                      <span className="quota-badge text-badge">每日 {plan.textDailyLimit} 文</span>
+                      <span className="quota-badge image-badge">每月 {plan.imageMonthlyLimit} 图</span>
+                      <span className="quota-badge account-badge">{plan.wechatAccountLimit > 500 ? '不限' : plan.wechatAccountLimit} 个公众号</span>
+                    </div>
+                  )} */}
                 </div>
 
                 <div className="membership-benefit-list membership-benefit-list-rich">
-                  {preset.features.map((feature) => (
+                  {(plan?.features ?? preset.features).map((feature: string) => (
                     <div key={feature}>
                       <CheckCircleFilled />
                       <span>{feature}</span>
@@ -199,7 +207,19 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
                   className="membership-plan-action"
                   loading={loading && activePlanCode === plan?.code}
                   disabled={isCurrent}
-                  onClick={() => plan && onCheckout(plan.code)}
+                  onClick={() => {
+                    const limit = membership?.isActive ? (membership.plan.wechatAccountLimit ?? 1) : 1;
+
+                    if (accounts.length >= limit) {
+                      Modal.warning({
+                        title: "账号数量已达上限",
+                        content: `您当前的套餐最多允许绑定 ${limit} 个公众号账号。如需添加更多，请前往「会员中心」升级套餐。`,
+                        okText: "我知道了",
+                      });
+                      return;
+                    }
+                    if (plan) onCheckout(plan.code);
+                  }}
                 >
                   {isCurrent ? "当前套餐" : "咨询开通"}
                 </Button>

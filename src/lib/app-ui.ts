@@ -9,7 +9,7 @@ import type {
   WritingMode,
 } from "./types";
 
-export type SidebarView = "workspace" | "membership" | "wechat" | "model" | "prompt" | "image" | "settings";
+export type SidebarView = "workspace" | "membership" | "wechat" | "model" | "prompt" | "image" | "settings" | "agent";
 
 export type PromptSlot = {
   id: string;

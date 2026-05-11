@@ -5,6 +5,7 @@ import {
   LockOutlined,
   MessageOutlined,
   SettingOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import type { SidebarView } from "../lib/app-ui";
 import { maskValue } from "../lib/app-ui";
@@ -138,6 +139,12 @@ export function Sidebar({
           <SettingOutlined />
           <span>设置</span>
         </button>
+        {currentUser.role === "agent" ? (
+          <button className={`nav-item${activeView === "agent" ? " active" : ""}`} onClick={() => onViewChange("agent")}>
+            <TeamOutlined />
+            <span>代理中心</span>
+          </button>
+        ) : null}
       </nav>
 
       <div className="sidebar-footer-card">

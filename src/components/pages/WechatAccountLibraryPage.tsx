@@ -21,6 +21,7 @@ type Props = {
   onEditAccount: (account: WechatAccount) => void;
   onRemoveAccount: (account: WechatAccount) => void;
   onPickCover: (accountId: string) => void;
+  membership: any;
 };
 
 function maskAppId(appId: string) {
@@ -39,6 +40,7 @@ export function WechatAccountLibraryPage({
   onEditAccount,
   onRemoveAccount,
   onPickCover,
+  membership,
 }: Props) {
   const [viewAccount, setViewAccount] = useState<WechatAccount | null>(null);
 
@@ -55,11 +57,39 @@ export function WechatAccountLibraryPage({
     <div className="prompt-library-wrap">
       <div className="ui-card prompt-library-toolbar">
         <div className="prompt-library-toolbar-text">
-          <div className="card-title">公众号</div>
+          <div className="card-title">
+            公众号
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#64748b", marginLeft: 10, opacity: 0.8 }}>
+              ({accounts.length} / {membership?.isActive && membership.plan.code === "monthly_990" ? "∞" : 
+                (membership?.isActive ? (membership.plan.code === "monthly_599" ? 10 : (membership.plan.code === "monthly_399" ? 5 : 2)) : 1)})
+            </span>
+          </div>
           <div className="helper-text">管理发送草稿、上传封面使用的公众号；在工作台创作设置中可快速切换。</div>
         </div>
         <div className="prompt-library-toolbar-actions">
-          <Button type="primary" onClick={onAddAccount} icon={<PlusOutlined />}>
+          <Button
+            type="primary"
+            onClick={() => {
+              const planCode = membership?.isActive ? membership.plan.code : null;
+              let limit = 1;
+              if (planCode === "monthly_99") limit = 2;
+              else if (planCode === "monthly_399") limit = 5;
+              else if (planCode === "monthly_599") limit = 10;
+              else if (planCode === "monthly_990") limit = Infinity;
+              else if (planCode === "monthly_199") limit = 2;
+
+              if (accounts.length >= limit) {
+                Modal.warning({
+                  title: "账号数量已达上限",
+                  content: `您当前的套餐最多允许绑定 ${limit} 个公众号账号。如需添加更多，请前往「会员中心」升级套餐。`,
+                  okText: "我知道了",
+                });
+                return;
+              }
+              onAddAccount();
+            }}
+            icon={<PlusOutlined />}
+          >
             新增公众号
           </Button>
         </div>
@@ -72,7 +102,29 @@ export function WechatAccountLibraryPage({
           </div>
           <div className="prompt-library-empty-title">暂无公众号</div>
           <p className="prompt-library-empty-desc">点击「新增公众号」添加配置后，即可在工作台选择并发送到草稿箱。</p>
-          <Button type="primary" icon={<PlusOutlined />} onClick={onAddAccount}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              const planCode = membership?.isActive ? membership.plan.code : null;
+              let limit = 1;
+              if (planCode === "monthly_99") limit = 2;
+              else if (planCode === "monthly_399") limit = 5;
+              else if (planCode === "monthly_599") limit = 10;
+              else if (planCode === "monthly_990") limit = Infinity;
+              else if (planCode === "monthly_199") limit = 2;
+
+              if (accounts.length >= limit) {
+                Modal.warning({
+                  title: "账号数量已达上限",
+                  content: `您当前的套餐最多允许绑定 ${limit} 个公众号账号。如需添加更多，请前往「会员中心」升级套餐。`,
+                  okText: "我知道了",
+                });
+                return;
+              }
+              onAddAccount();
+            }}
+          >
             新增公众号
           </Button>
         </div>

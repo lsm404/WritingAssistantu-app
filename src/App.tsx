@@ -58,6 +58,7 @@ import { PromptPage } from "./components/pages/PromptPage";
 import { WechatAccountLibraryPage } from "./components/pages/WechatAccountLibraryPage";
 import { ModelPage } from "./components/pages/ModelPage";
 import { PlaceholderPage } from "./components/pages/PlaceholderPage";
+import { AgentDashboardPage } from "./components/pages/AgentDashboardPage";
 import { ImagePage } from "./components/pages/ImagePage";
 import { LoginPage } from "./components/pages/LoginPage";
 import { MembershipPage } from "./components/pages/MembershipPage";
@@ -206,6 +207,13 @@ function InnerApp() {
   useEffect(() => {
     fetchMembershipPlans(MEMBER_BACKEND_BASE_URL).then(setPlans).catch(() => undefined);
   }, []);
+
+  // 每次进入会员中心页面时，强制刷新一次套餐数据
+  useEffect(() => {
+    if (activeView === "membership") {
+      fetchMembershipPlans(MEMBER_BACKEND_BASE_URL).then(setPlans).catch(() => undefined);
+    }
+  }, [activeView]);
 
   useEffect(() => {
     const token = window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "";
@@ -1177,6 +1185,7 @@ function InnerApp() {
             quota={quota}
             loading={!!checkoutLoading}
             activePlanCode={checkoutLoading}
+            accounts={accounts}
             onCheckout={(planCode) => void handleCheckout(planCode)}
           />
         ) : null}
@@ -1201,6 +1210,7 @@ function InnerApp() {
             onEditAccount={(a) => openEditAccountDialog(a)}
             onRemoveAccount={removeAccountByTarget}
             onPickCover={requestCoverPickForAccount}
+            membership={membership}
           />
         ) : null}
 
@@ -1227,6 +1237,13 @@ function InnerApp() {
           <SettingsPage
             runtimeInfo={runtimeInfo}
             onCheckUpdate={() => checkForAppUpdates(true)}
+          />
+        ) : null}
+
+        {activeView === "agent" ? (
+          <AgentDashboardPage
+            authToken={authToken || ""}
+            baseUrl={MEMBER_BACKEND_BASE_URL}
           />
         ) : null}
 

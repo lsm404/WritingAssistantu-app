@@ -166,7 +166,13 @@ export async function fetchCurrentUser(
 }
 
 export async function fetchMembershipPlans(baseUrl: string): Promise<MembershipPlan[]> {
-  const response = await fetch(`${baseUrl}/v1/plans`);
+  const response = await fetch(`${baseUrl}/v1/plans`, {
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+    },
+  });
 
   if (!response.ok) {
     await parseError(response);

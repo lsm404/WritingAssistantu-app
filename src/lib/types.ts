@@ -83,6 +83,11 @@ export interface MembershipPlan {
   isLifetime: boolean;
   isActive: boolean;
   sortOrder: number;
+  textDailyLimit: number;
+  imageMonthlyLimit: number;
+  wechatAccountLimit: number;
+  tagline: string;
+  features: string[];
 }
 
 export interface UserMembership {
