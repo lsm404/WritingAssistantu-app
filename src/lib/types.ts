@@ -29,6 +29,7 @@ export interface RuntimeInfo {
   platform: string;
   arch: string;
   tauriVersion: string;
+  version: string;
 }
 
 export interface GeneratePayload {

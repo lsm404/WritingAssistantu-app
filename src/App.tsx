@@ -62,6 +62,7 @@ import { ImagePage } from "./components/pages/ImagePage";
 import { LoginPage } from "./components/pages/LoginPage";
 import { MembershipPage } from "./components/pages/MembershipPage";
 import { WechatPreviewModal } from "./components/WechatPreviewModal";
+import { SettingsPage } from "./components/pages/SettingsPage";
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
@@ -115,7 +116,7 @@ function InnerApp() {
   const sourceFileInputRef = useRef<HTMLInputElement | null>(null);
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
+  const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authLoading, setAuthLoading] = useState(false);
@@ -171,29 +172,35 @@ function InnerApp() {
     }
   }, []);
 
-  useEffect(() => {
-    const checkForAppUpdates = async () => {
-      try {
-        const update = await check();
-        if (update) {
-          modal.confirm({
-            title: `发现新版本 ${update.version}`,
-            content: `更新内容: ${update.body || '无详细说明'}`,
-            okText: '立即更新',
-            cancelText: '稍后',
-            onOk: async () => {
-              message.loading({ content: '正在下载更新...', key: 'update' });
-              await update.downloadAndInstall();
-              message.success({ content: '更新完成，正在重启...', key: 'update' });
-              await relaunch();
-            }
-          });
-        }
-      } catch (error) {
-        console.error('更新检查失败:', error);
+  const checkForAppUpdates = async (manual = false) => {
+    try {
+      const update = await check();
+      if (update) {
+        modal.confirm({
+          title: `发现新版本 ${update.version}`,
+          content: `更新内容: ${update.body || '无详细说明'}`,
+          okText: '立即更新',
+          cancelText: '稍后',
+          onOk: async () => {
+            message.loading({ content: '正在下载更新...', key: 'update' });
+            await update.downloadAndInstall();
+            message.success({ content: '更新完成，正在重启...', key: 'update' });
+            await relaunch();
+          }
+        });
+      } else if (manual) {
+        message.success('当前已是最新版本');
       }
-    };
-    checkForAppUpdates();
+    } catch (error) {
+      console.error('更新检查失败:', error);
+      if (manual) {
+        message.error('检查更新失败，请稍后再试');
+      }
+    }
+  };
+
+  useEffect(() => {
+    checkForAppUpdates(false);
   }, [modal, message]);
 
   useEffect(() => {
@@ -1217,9 +1224,9 @@ function InnerApp() {
         ) : null}
 
         {activeView === "settings" ? (
-          <PlaceholderPage
-            title="应用设置"
-            description="当前版本先聚焦创作与会员能力，后续可以继续补充更多个人偏好设置。"
+          <SettingsPage
+            runtimeInfo={runtimeInfo}
+            onCheckUpdate={() => checkForAppUpdates(true)}
           />
         ) : null}
 

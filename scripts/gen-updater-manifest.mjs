@@ -13,7 +13,7 @@
  *
  * If no URL can be resolved: prints a skip message and exits 0 (does not fail the build).
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, renameSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -85,29 +85,43 @@ function resolveNotes() {
 }
 
 function main() {
-  const zipName = findNewestZipFilename();
-  if (!zipName) {
+  const originalZipName = findNewestZipFilename();
+  if (!originalZipName) {
     console.warn("[updater-manifest] skip: no updater zip artifact.");
     process.exit(0);
   }
 
-  const artifactUrl = resolveArtifactUrl(zipName);
-  if (!artifactUrl) {
-    console.warn(
-      "[updater-manifest] skip: set UPDATER_ARTIFACT_URL, or UPDATER_CDN_BASE, or updater/cdn-base.txt",
-    );
+  // 1. 先准备好原始 sig 路径并读取内容
+  const originalSigPath = join(bundleDir, `${originalZipName}.sig`);
+  if (!existsSync(originalSigPath)) {
+    console.warn(`[updater-manifest] skip: missing signature file ${originalSigPath}`);
     process.exit(0);
   }
-
-  const sigPath = join(bundleDir, `${zipName}.sig`);
-  if (!existsSync(sigPath)) {
-    console.warn(`[updater-manifest] skip: missing signature file ${sigPath}`);
-    process.exit(0);
-  }
-
-  const signature = readFileSync(sigPath, "utf8").trim();
+  const signature = readFileSync(originalSigPath, "utf8").trim();
   if (!signature) {
     console.warn("[updater-manifest] skip: empty signature");
+    process.exit(0);
+  }
+
+  // 2. 执行重命名为 app.zip
+  const targetZipName = "app.zip";
+  const oldZipPath = join(bundleDir, originalZipName);
+  const newZipPath = join(bundleDir, targetZipName);
+  
+  if (originalZipName !== targetZipName) {
+    try {
+      if (existsSync(newZipPath)) unlinkSync(newZipPath);
+      renameSync(oldZipPath, newZipPath);
+      console.log(`[updater-manifest] Renamed: ${originalZipName} -> ${targetZipName}`);
+    } catch (e) {
+      console.error("[updater-manifest] Rename failed:", e);
+    }
+  }
+
+  // 3. 构造 URL (强制指向 app.zip)
+  const artifactUrl = resolveArtifactUrl(targetZipName);
+  if (!artifactUrl) {
+    console.warn("[updater-manifest] skip: missing cdn-base.txt");
     process.exit(0);
   }
 
@@ -130,7 +144,6 @@ function main() {
   const outPath = join(bundleDir, "latest.json");
   writeFileSync(outPath, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
   console.log(`[updater-manifest] OK: ${outPath}`);
-  console.log(`[updater-manifest] zip: ${zipName}`);
 }
 
 main();

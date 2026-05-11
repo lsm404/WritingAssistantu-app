@@ -11,6 +11,7 @@ export async function getRuntimeInfo(): Promise<RuntimeInfo> {
       platform: "browser",
       arch: "unknown",
       tauriVersion: "preview",
+      version: "1.0.0",
     };
   }
 

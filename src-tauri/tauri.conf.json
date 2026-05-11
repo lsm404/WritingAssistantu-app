@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "写作助手",
-  "version": "1.0.0",
+  "version": "0.0.8",
   "identifier": "com.openclaw.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "写作助手",
         "width": 1120,
         "height": 760,
@@ -28,8 +29,9 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3Nzk2OTUwNDRFNDk3NjkKUldScGwrUkVVR2w1dDErMHhUK2dndUk5R3pPalRiUXFnNStsN1FteHNjSldTN2loV3VGYklEVzYK",
       "endpoints": [
-        "https://releases.example.com/v2/latest.json"
+        "http://49.235.172.63:3100/latest.json"
       ],
+      "dangerousInsecureTransportProtocol": true,
       "windows": {
         "installMode": "passive"
       }
