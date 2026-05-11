@@ -49,6 +49,7 @@ export interface GeneratePayload {
   apiModel?: string;
   apiBaseUrl?: string;
   enableWebSearch?: boolean;
+  imagePrompt?: string;
 }
 
 export interface WechatAccount {

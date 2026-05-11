@@ -189,17 +189,6 @@ export function WorkspacePage({
                   </div>
 
                   <div className="form-item">
-                    <div className="form-item-label">风格偏好</div>
-                    <Select
-                      value={workspaceOptionalFieldValue(articleDraft.style)}
-                      onChange={(value) => onArticleFieldChange("style", parseWorkspaceOptionalField(value))}
-                      options={styleOptions}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginTop: "4px" }}>
-                  <div className="form-item">
                     <div className="form-item-label">配图数量</div>
                     <Select
                       value={workspaceOptionalImageCountValue(articleDraft.imageCount)}
@@ -207,7 +196,10 @@ export function WorkspacePage({
                       options={imageCountOptions}
                     />
                   </div>
-                  <div className="form-item">
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginTop: "4px" }}>
+                  {/* <div className="form-item">
                     <div className="form-item-label">模式</div>
                     <Select
                       value={workspaceOptionalEnumValue(articleDraft.mode)}
@@ -219,7 +211,17 @@ export function WorkspacePage({
                       }
                       options={modeOptions}
                     />
-                  </div>
+                  </div> */}
+                  {(articleDraft.imageCount ?? 0) > 0 && (
+                    <div className="form-item" style={{ gridColumn: "span 2" }}>
+                      <div className="form-item-label">图片要求</div>
+                      <Input
+                        placeholder="可选，例如：极简画风、商务科技感、温暖治愈等"
+                        value={articleDraft.imagePrompt}
+                        onChange={(e) => onArticleFieldChange("imagePrompt", e.target.value)}
+                      />
+                    </div>
+                  )}
                   <div className="form-item" style={{ gridColumn: "span 2" }}>
                     <div className="form-item-label">表达处理</div>
                     <Select

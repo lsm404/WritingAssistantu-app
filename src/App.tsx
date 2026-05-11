@@ -544,18 +544,31 @@ function InnerApp() {
     return null;
   };
 
-  const buildIllustrationPrompts = (articleMd: string, title: string, count: number) => {
+  const buildIllustrationPrompts = (articleMd: string, title: string, count: number, imagePrompt?: string) => {
     const sections = articleMd
       .split("\n")
       .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("![]("));
-    const chunks = sections.filter((line) => !line.startsWith("# ")).slice(0, Math.max(count * 2, count));
+      .filter((line) => line && !line.startsWith("![](") && !line.startsWith("# "));
+    
+    const styleRequirement = imagePrompt 
+      ? `图片具体要求：${imagePrompt}`
+      : "风格要求：简洁、质感、高级、适合公众号排版配图。";
+
+    if (sections.length === 0) {
+      return Array.from({ length: count }, () => [
+        "文章配图，中文内容理解后生成画面。",
+        styleRequirement,
+        `文章内容：${title}`,
+      ].join(" "));
+    }
 
     return Array.from({ length: count }, (_, index) => {
-      const chunk = chunks[index] || chunks[chunks.length - 1] || title;
+      // 均匀分布：从文章不同位置选取内容作为配图依据
+      const chunkIdx = Math.floor((index * sections.length) / count);
+      const chunk = sections[chunkIdx] || sections[sections.length - 1] || title;
       return [
         "文章配图，中文内容理解后生成画面。",
-        "风格要求：简洁、质感、高级、适合公众号排版配图。",
+        styleRequirement,
         `文章标题：${title}`,
         `配图重点：${chunk.replace(/^#+\s*/, "").slice(0, 120)}`,
       ].join(" ");
@@ -568,36 +581,63 @@ function InnerApp() {
     }
 
     const lines = articleMd.split("\n");
-    const headingIndexes = lines
-      .map((line, index) => ({ line: line.trim(), index }))
-      .filter((item) => item.line.startsWith("## "))
-      .map((item) => item.index);
+    
+    // 寻找潜在的插入点：优先找二级标题，其次三级标题，最后找段落间隙
+    let insertionPoints = lines
+      .map((line, index) => ({ line: line.trim(), index, type: 'h2' }))
+      .filter((item) => item.line.startsWith("## "));
 
-    if (!headingIndexes.length) {
+    if (insertionPoints.length === 0) {
+      insertionPoints = lines
+        .map((line, index) => ({ line: line.trim(), index, type: 'h3' }))
+        .filter((item) => item.line.startsWith("### "));
+    }
+
+    if (insertionPoints.length === 0) {
+      // 如果没有标题，寻找段落（空行后的非空行）
+      insertionPoints = lines
+        .map((line, index) => ({ line: line.trim(), index, type: 'p' }))
+        .filter((item, i) => i > 0 && item.line && !lines[i - 1].trim());
+    }
+
+    if (insertionPoints.length === 0) {
+      // 实在找不到结构，则均匀追加到末尾
       return [articleMd, ...imageUrls.map((url) => `\n![](${url})\n`)].join("\n");
     }
 
-    const insertIndexes = headingIndexes.slice(0, imageUrls.length).reverse();
-    insertIndexes.forEach((lineIndex, reverseIndex) => {
-      const imageUrl = imageUrls[imageUrls.length - 1 - reverseIndex];
-      lines.splice(lineIndex + 1, 0, "", `![](${imageUrl})`, "");
-    });
+    const resultLines = [...lines];
+    const pointCount = insertionPoints.length;
+    const imageCount = imageUrls.length;
 
-    return lines.join("\n");
+    // 为了避免 splice 导致索引偏移，我们从后往前插入
+    for (let i = imageCount - 1; i >= 0; i--) {
+      // 均匀选择插入点
+      const pointIdx = Math.floor((i * pointCount) / imageCount);
+      const point = insertionPoints[pointIdx];
+      const imageUrl = imageUrls[i];
+      
+      // 如果是标题，插入在标题之后；如果是段落起始，插入在段落之前
+      const insertAt = point.type === 'p' ? point.index : point.index + 1;
+      resultLines.splice(insertAt, 0, "", `![](${imageUrl})`, "");
+    }
+
+    return resultLines.join("\n");
   };
 
   const generateArticleIllustrations = async ({
     articleMd,
     title,
     count,
+    imagePrompt,
     authToken: currentToken,
   }: {
     articleMd: string;
     title: string;
     count: number;
+    imagePrompt?: string;
     authToken: string;
   }) => {
-    const prompts = buildIllustrationPrompts(articleMd, title, count);
+    const prompts = buildIllustrationPrompts(articleMd, title, count, imagePrompt);
     const results = await Promise.all(
       prompts.map((prompt) =>
         generateImage({
@@ -919,6 +959,7 @@ function InnerApp() {
             articleMd: result.articleMd,
             title,
             count: articleDraft.imageCount ?? 0,
+            imagePrompt: articleDraft.imagePrompt,
             authToken,
           });
           finalMarkdown = mergeArticleWithImages(result.articleMd, imageUrls);

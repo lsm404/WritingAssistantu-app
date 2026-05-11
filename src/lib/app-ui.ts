@@ -473,6 +473,7 @@ export function defaultArticleDraft(): GeneratePayload {
     apiModel: "doubao-seed-2-0-pro-260215",
     apiBaseUrl: "https://ark.cn-beijing.volces.com/api/v3",
     enableWebSearch: true,
+    imagePrompt: "",
   };
 }
 
