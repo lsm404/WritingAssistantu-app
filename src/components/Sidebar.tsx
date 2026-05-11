@@ -80,7 +80,7 @@ export function Sidebar({
     ? membership.plan?.code
       ? quotaMap[membership.plan.code] ?? null
       : null
-    : { textDaily: 3, imageMonthly: 3 };
+    : { textDaily: 2, imageMonthly: 3 };
   const textLimit = quota?.text.limit ?? defaultQuota?.textDaily ?? 0;
   const imageLimit = quota?.image.limit ?? defaultQuota?.imageMonthly ?? 0;
   const textUsed = quota?.text.used ?? 0;
