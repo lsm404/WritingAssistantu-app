@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { App as AntApp, Button, Card, Image, Input, Slider, Space, Spin, Tag, Typography } from "antd";
+import { App as AntApp, Button, Card, Image, Input, Slider, Space, Spin, Switch, Tag, Typography } from "antd";
 import {
   CopyOutlined,
   CrownOutlined,
@@ -66,6 +66,7 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
   const [size, setSize] = useState<ImageSize>("1024x1024");
   const [quality, setQuality] = useState<ImageQuality>("standard");
   const [imageCount, setImageCount] = useState(1);
+  const [watermark, setWatermark] = useState(true);
   const [generatedImages, setGeneratedImages] = useState<
     Array<{
       url?: string;
@@ -120,6 +121,7 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
         size,
         quality,
         n: imageCount,
+        watermark,
         authToken,
         baseUrl,
       };
@@ -290,6 +292,11 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
                 style={{ marginTop: 8 }}
                 disabled={generating}
               />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography.Text strong>添加水印</Typography.Text>
+              <Switch checked={watermark} onChange={setWatermark} disabled={generating} />
             </div>
 
             <Button

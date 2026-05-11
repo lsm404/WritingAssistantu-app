@@ -596,6 +596,7 @@ export async function generateImage(payload: ImageGeneratePayload): Promise<Imag
       size: payload.size,
       quality: payload.quality,
       n: payload.n,
+      watermark: payload.watermark,
     }),
   });
 

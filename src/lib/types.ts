@@ -174,6 +174,7 @@ export interface ImageGeneratePayload {
   size: ImageSize;
   quality: ImageQuality;
   n: number;
+  watermark?: boolean;
   authToken: string;
   baseUrl: string;
 }
