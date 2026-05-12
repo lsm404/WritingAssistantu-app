@@ -141,6 +141,7 @@ export async function loginAccount(
 export async function fetchCurrentUser(
   baseUrl: string,
   token: string,
+  options?: { signal?: AbortSignal },
 ): Promise<{
   user: AuthUser;
   membership: UserMembership | null;
@@ -151,6 +152,7 @@ export async function fetchCurrentUser(
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    signal: options?.signal,
   });
 
   if (!response.ok) {

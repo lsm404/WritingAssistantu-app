@@ -63,6 +63,12 @@ export function summarizeMarkdown(markdown: string) {
     .slice(0, 120);
 }
 
+export function stripUnicodeReplacementChars(text: string) {
+  return String(text || "")
+    .replace(/\uFFFD+/g, "")
+    .replace(/\s+([，。！？；：])/g, "$1");
+}
+
 function escapeHtml(text: string) {
   return text
     .replace(/&/g, "&amp;")

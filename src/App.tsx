@@ -42,6 +42,7 @@ import {
   type DraftMeta,
   type PromptSlot,
   summarizeMarkdown,
+  stripUnicodeReplacementChars,
   type SidebarView,
   workspaceAudienceOptions,
   workspaceExpressionModeOptions,
@@ -72,6 +73,8 @@ const MEMBER_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/a
 const CONTENT_BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || "/api";
 
 const AUTH_TOKEN_STORAGE_KEY = "openclaw.authToken";
+const STARTUP_AUTH_TIMEOUT_MS = 5000;
+const STARTUP_UPDATE_CHECK_DELAY_MS = 3500;
 
 /** 历史版本与本应用曾写入的本地草稿/公众号缓存，启动时清除（不再使用 localStorage 持久化这些内容） */
 const LEGACY_LOCAL_CACHE_KEYS = [
@@ -202,8 +205,14 @@ function InnerApp() {
   };
 
   useEffect(() => {
-    checkForAppUpdates(false);
-  }, [modal, message]);
+    if (!authReady) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void checkForAppUpdates(false);
+    }, STARTUP_UPDATE_CHECK_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [authReady, modal, message]);
 
   useEffect(() => {
     fetchMembershipPlans(MEMBER_BACKEND_BASE_URL).then(setPlans).catch(() => undefined);
@@ -223,21 +232,35 @@ function InnerApp() {
       return;
     }
 
-    fetchCurrentUser(MEMBER_BACKEND_BASE_URL, token)
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), STARTUP_AUTH_TIMEOUT_MS);
+
+    fetchCurrentUser(MEMBER_BACKEND_BASE_URL, token, { signal: controller.signal })
       .then((result) => {
         setAuthToken(token);
         setCurrentUser(result.user);
         setMembership(result.membership);
         setQuota(result.quota);
       })
-      .catch(() => {
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
         window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
         setAuthToken("");
         setCurrentUser(null);
         setMembership(null);
         setQuota(null);
       })
-      .finally(() => setAuthReady(true));
+      .finally(() => {
+        window.clearTimeout(timeout);
+        setAuthReady(true);
+      });
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   const loadPromptsFromBackend = async (token: string) => {
@@ -961,30 +984,33 @@ function InnerApp() {
           systemPrompt: (articleDraft.systemPrompt ?? "").trim() || activePrompt?.content || "",
         },
         (delta) => {
-          setResultMarkdown((prev) => prev + delta);
+          setResultMarkdown((prev) => stripUnicodeReplacementChars(prev + delta));
         },
       );
       applyQuotaFromResponse(result.quota);
-      const title = extractTitleFromMarkdown(result.articleMd, articleDraft.topic);
-      const digest = summarizeMarkdown(result.articleMd);
-      let finalMarkdown = result.articleMd;
+      const cleanArticleMd = stripUnicodeReplacementChars(result.articleMd);
+      const title = extractTitleFromMarkdown(cleanArticleMd, articleDraft.topic);
+      const digest = summarizeMarkdown(cleanArticleMd);
+      let finalMarkdown = cleanArticleMd;
 
       if ((articleDraft.imageCount ?? 0) > 0) {
         setIsGeneratingImages(true);
         try {
           const imageUrls = await generateArticleIllustrations({
-            articleMd: result.articleMd,
+            articleMd: cleanArticleMd,
             title,
             count: articleDraft.imageCount ?? 0,
             imagePrompt: articleDraft.imagePrompt,
             authToken,
           });
-          finalMarkdown = mergeArticleWithImages(result.articleMd, imageUrls);
+          finalMarkdown = stripUnicodeReplacementChars(mergeArticleWithImages(cleanArticleMd, imageUrls));
           setResultMarkdown(finalMarkdown);
           await refreshCurrentUser(authToken);
         } finally {
           setIsGeneratingImages(false);
         }
+      } else {
+        setResultMarkdown(finalMarkdown);
       }
 
       setDraftMeta((current) => ({
@@ -1033,12 +1059,13 @@ function InnerApp() {
 
     setIsSendingDraft(true);
     try {
-      const contentHtml = markdownToWechatHtml(resultMarkdown);
+      const cleanMarkdown = stripUnicodeReplacementChars(resultMarkdown);
+      const contentHtml = stripUnicodeReplacementChars(markdownToWechatHtml(cleanMarkdown));
       const result = await sendWechatDraft(CONTENT_BACKEND_BASE_URL, {
         title,
         author: draftMeta.author.trim() || activeAccount.name,
         digest: draftMeta.digest.trim(),
-        contentMd: resultMarkdown,
+        contentMd: cleanMarkdown,
         contentHtml,
         wechatAppId: activeAccount.appId,
         wechatAppSecret: activeAccount.appSecret,
