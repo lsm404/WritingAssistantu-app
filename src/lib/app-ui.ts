@@ -50,6 +50,10 @@ export function extractTitleFromMarkdown(markdown: string, fallback: string) {
   return fallback.trim().slice(0, 64);
 }
 
+function stripLeadingTitleHeading(markdown: string) {
+  return markdown.replace(/^\s*#\s+.+(?:\r?\n)+(?:\s*\r?\n)*/u, "");
+}
+
 export function summarizeMarkdown(markdown: string) {
   return markdown
     .replace(/^#+\s+/gm, "")
@@ -57,6 +61,152 @@ export function summarizeMarkdown(markdown: string) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderInlineMarkdown(text: string) {
+  let html = escapeHtml(text);
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, src) => {
+    const cleanAlt = escapeHtml(String(alt || "").trim());
+    const cleanSrc = String(src || "").trim();
+    return `<img src="${cleanSrc}" alt="${cleanAlt}" />`;
+  });
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label, href) => {
+    const cleanHref = String(href || "").trim();
+    return `<a href="${cleanHref}">${escapeHtml(String(label || "").trim())}</a>`;
+  });
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+  html = html.replace(/(?<!_)_([^_\n]+)_(?!_)/g, "<em>$1</em>");
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/&lt;br\s*\/?&gt;/gi, "<br />");
+  return html;
+}
+
+export function markdownToWechatHtml(markdown: string) {
+  const normalized = stripLeadingTitleHeading(markdown).replace(/\r\n/g, "\n").trim();
+  if (!normalized) return "";
+
+  const lines = normalized.split("\n");
+  const html: string[] = [];
+  let paragraph: string[] = [];
+  let listItems: string[] = [];
+  let listTag: "ul" | "ol" | null = null;
+  let quoteLines: string[] = [];
+  let pendingBlankLines = 0;
+
+  const flushBlankLines = () => {
+    if (pendingBlankLines <= 0) return;
+    for (let i = 0; i < pendingBlankLines; i += 1) {
+      html.push("<p><br /></p>");
+    }
+    pendingBlankLines = 0;
+  };
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    flushBlankLines();
+    html.push(`<p>${renderInlineMarkdown(paragraph.join("<br />"))}</p>`);
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (!listTag || !listItems.length) return;
+    flushBlankLines();
+    html.push(`<${listTag}>${listItems.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</${listTag}>`);
+    listItems = [];
+    listTag = null;
+  };
+
+  const flushQuote = () => {
+    if (!quoteLines.length) return;
+    flushBlankLines();
+    html.push(`<blockquote><p>${renderInlineMarkdown(quoteLines.join("<br />"))}</p></blockquote>`);
+    quoteLines = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushParagraph();
+      flushList();
+      flushQuote();
+      pendingBlankLines += 1;
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      flushBlankLines();
+      flushParagraph();
+      flushList();
+      flushQuote();
+      const level = Math.min(headingMatch[1].length, 6);
+      html.push(`<h${level}>${renderInlineMarkdown(headingMatch[2].trim())}</h${level}>`);
+      continue;
+    }
+
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
+      flushBlankLines();
+      flushParagraph();
+      flushList();
+      flushQuote();
+      html.push("<hr />");
+      continue;
+    }
+
+    const quoteMatch = line.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      flushParagraph();
+      flushList();
+      quoteLines.push(quoteMatch[1]);
+      continue;
+    }
+
+    const ulMatch = line.match(/^[-*]\s+(.+)$/);
+    if (ulMatch) {
+      flushParagraph();
+      flushQuote();
+      if (listTag && listTag !== "ul") {
+        flushList();
+      }
+      listTag = "ul";
+      listItems.push(ulMatch[1].trim());
+      continue;
+    }
+
+    const olMatch = line.match(/^\d+\.\s+(.+)$/);
+    if (olMatch) {
+      flushParagraph();
+      flushQuote();
+      if (listTag && listTag !== "ol") {
+        flushList();
+      }
+      listTag = "ol";
+      listItems.push(olMatch[1].trim());
+      continue;
+    }
+
+    flushList();
+    flushQuote();
+    paragraph.push(line);
+  }
+
+  flushParagraph();
+  flushList();
+  flushQuote();
+
+  return html.join("\n");
 }
 
 export function maskValue(value: string, keepStart = 8, keepEnd = 5) {

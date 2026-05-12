@@ -70,6 +70,8 @@ const planPresets: PlanPreset[] = [
   },
 ];
 
+const presetByCode = new Map(planPresets.map((preset) => [preset.code, preset]));
+
 function formatDate(value: string | null) {
   if (!value) {
     return "长期有效";
@@ -97,13 +99,27 @@ function getStatusText(membership: UserMembership | null, quotaSummary: UserQuot
   return `有效期至 ${formatDate(membership.endAt)}`;
 }
 
+function getFallbackPreset(plan: MembershipPlan, index: number): PlanPreset {
+  const matched = presetByCode.get(plan.code);
+  if (matched) return matched;
+
+  return {
+    code: plan.code,
+    fallbackName: plan.name,
+    fallbackPriceLabel: plan.priceLabel,
+    icon: planPresets[index % planPresets.length]?.icon ?? <StarFilled />,
+    accentClass: planPresets[index % planPresets.length]?.accentClass ?? "sun",
+    tagline: plan.tagline,
+    features: plan.features,
+  };
+}
+
 function getDisplayPlans(plans: MembershipPlan[]) {
   const activePlans = plans.filter((plan) => plan.isActive);
-  const planMap = new Map(activePlans.map((plan) => [plan.code, plan]));
 
-  return planPresets.map((preset, index) => ({
-    preset,
-    plan: planMap.get(preset.code) ?? activePlans[index] ?? null,
+  return activePlans.map((plan, index) => ({
+    preset: getFallbackPreset(plan, index),
+    plan,
   }));
 }
 

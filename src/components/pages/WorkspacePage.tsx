@@ -92,7 +92,7 @@ export function WorkspacePage({
             <p className="workspace-tip-p">
               <strong className="workspace-tip-kicker">AI 辅助创作：</strong>
               <span>
-                AI 帮你打底，你的灵魂来上色。别忘了加入自己的独特见解哦！
+                AI 负责效率，你负责深度。 在智能底稿上，勾勒你的专属洞见。
               </span>
             </p>
           </div>

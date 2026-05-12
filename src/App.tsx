@@ -38,6 +38,7 @@ import {
   defaultDraftMeta,
   defaultPromptSlots,
   extractTitleFromMarkdown,
+  markdownToWechatHtml,
   type DraftMeta,
   type PromptSlot,
   summarizeMarkdown,
@@ -1031,11 +1032,13 @@ function InnerApp() {
 
     setIsSendingDraft(true);
     try {
+      const contentHtml = markdownToWechatHtml(resultMarkdown);
       const result = await sendWechatDraft(CONTENT_BACKEND_BASE_URL, {
         title,
         author: draftMeta.author.trim() || activeAccount.name,
         digest: draftMeta.digest.trim(),
         contentMd: resultMarkdown,
+        contentHtml,
         wechatAppId: activeAccount.appId,
         wechatAppSecret: activeAccount.appSecret,
         wechatThumbMediaId: activeAccount.thumbMediaId,

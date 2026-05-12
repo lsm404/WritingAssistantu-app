@@ -433,6 +433,7 @@ export function buildDraftPayload(payload: DraftPayload) {
   return {
     title: payload.title,
     content_md: payload.contentMd,
+    content_html: payload.contentHtml || undefined,
     digest: payload.digest || undefined,
     author: payload.author || undefined,
     wechat_appid: payload.wechatAppId || undefined,

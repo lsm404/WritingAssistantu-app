@@ -130,6 +130,7 @@ export interface AuthSession {
 export interface DraftPayload {
   title: string;
   contentMd: string;
+  contentHtml?: string;
   digest?: string;
   author?: string;
   wechatAppId?: string;
