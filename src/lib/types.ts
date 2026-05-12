@@ -68,6 +68,7 @@ export interface AuthUser {
   role: string;
   status: string;
   signupInviteCode?: string | null;
+  membershipContactWechat?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +85,7 @@ export interface MembershipPlan {
   isActive: boolean;
   sortOrder: number;
   textDailyLimit: number;
+  textMonthlyLimit?: number;
   imageMonthlyLimit: number;
   wechatAccountLimit: number;
   tagline: string;

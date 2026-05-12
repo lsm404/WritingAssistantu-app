@@ -14,7 +14,6 @@ type Props = {
   quota: UserQuotaSummary | null;
   loading: boolean;
   activePlanCode: string | null;
-  accounts: any[];
   onCheckout: (planCode: string) => void;
 };
 
@@ -33,40 +32,40 @@ const planPresets: PlanPreset[] = [
   {
     code: "monthly_99",
     fallbackName: "基础月卡",
-    fallbackPriceLabel: "9.90",
+    fallbackPriceLabel: "59.90",
     icon: <FireFilled />,
     accentClass: "sun",
     tagline: "轻量起步，适合基础文字创作",
-    features: ["每天 5 次文字创作", "允许绑定 2 个公众号", "不支持 AI 生图功能"],
+    features: ["每月 150 次文章生成额度", "允许绑定 2 个公众号", "不支持 AI 生图功能"],
   },
   {
     code: "monthly_399",
     fallbackName: "进阶月卡",
-    fallbackPriceLabel: "39.90",
+    fallbackPriceLabel: "89.90",
     icon: <RocketFilled />,
     accentClass: "sky",
     badge: "日常主力",
     tagline: "覆盖稳定更新频率，适合日常持续输出",
-    features: ["每天 7 次文字创作", "每月 30 张图片额度", "允许绑定 5 个公众号"],
+    features: ["每月 210 次文章生成额度", "每月 30 张图片额度", "会员生图支持去水印", "允许绑定 5 个公众号"],
   },
   {
     code: "monthly_599",
     fallbackName: "专业月卡",
-    fallbackPriceLabel: "59.90",
+    fallbackPriceLabel: "109.90",
     icon: <StarFilled />,
     accentClass: "orange",
     tagline: "中高频创作更从容，效率和成本更平衡",
-    features: ["每天 15 次文字创作", "每月 60 张图片额度", "允许绑定 10 个公众号"],
+    features: ["每月 450 次文章生成额度", "每月 60 张图片额度", "会员生图支持去水印", "允许绑定 10 个公众号"],
   },
   {
     code: "monthly_990",
     fallbackName: "尊享月卡",
-    fallbackPriceLabel: "99.00",
+    fallbackPriceLabel: "199.00",
     icon: <CrownFilled />,
     accentClass: "purple",
     badge: "最受欢迎",
     tagline: "高频深度使用场景，给重度创作留足空间",
-    features: ["每天 50 次文字创作", "每月 150 张图片额度", "不限制公众号绑定数量"],
+    features: ["每月 1500 次文章生成额度", "每月 150 张图片额度", "会员生图支持去水印", "不限制公众号绑定数量"],
   },
 ];
 
@@ -83,13 +82,29 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function getPlanTextMonthlyLimit(plan?: MembershipPlan | null) {
+  return plan?.textMonthlyLimit ?? (plan?.textDailyLimit ?? 0) * 30;
+}
+
+function normalizeFeatureLabel(feature: string, textMonthlyLimit: number) {
+  return feature.replace(/每天\s*\d+\s*次文字创作/g, `每月 ${textMonthlyLimit} 次文章生成额度`);
+}
+
+function getDisplayFeatures(features: string[], textMonthlyLimit: number, canGenerateImages: boolean) {
+  const normalized = features.map((feature) => normalizeFeatureLabel(feature, textMonthlyLimit));
+  if (canGenerateImages && !normalized.some((feature) => feature.includes("去水印"))) {
+    normalized.splice(Math.min(2, normalized.length), 0, "会员生图支持去水印");
+  }
+  return normalized;
+}
+
 function getStatusText(membership: UserMembership | null, quotaSummary: UserQuotaSummary | null) {
   if (!membership?.isActive) {
     const textCycle = quotaSummary?.text.resetEveryDays ?? 3;
     const imageCycle = quotaSummary?.image.resetEveryDays ?? 7;
     const textLim = quotaSummary?.text.limit ?? 3;
     const imageLim = quotaSummary?.image.limit ?? 3;
-    return `您正在使用免费版：每 ${textCycle} 天可享受 ${textLim} 次文章生成额度，每 ${imageCycle} 天可享受 ${imageLim} 张 AI 配图额度；两个周期分别计算，到期自动恢复。开通会员可获得更高额度，并按自然日 / 自然月计费。`;
+    return `您正在使用免费版：每 ${textCycle} 天可享受 ${textLim} 次文章生成额度，每 ${imageCycle} 天可享受 ${imageLim} 张 AI 配图额度；两个周期分别计算，到期自动恢复。开通会员可获得更高额度，文章和配图按自然月总量计算。`;
   }
 
   if (membership.plan.isLifetime) {
@@ -123,7 +138,7 @@ function getDisplayPlans(plans: MembershipPlan[]) {
   }));
 }
 
-export function MembershipPage({ plans, membership, quota, loading, activePlanCode, accounts, onCheckout }: Props) {
+export function MembershipPage({ plans, membership, quota, loading, activePlanCode, onCheckout }: Props) {
   const displayPlans = getDisplayPlans(plans);
   const currentPlanCode = membership?.isActive ? membership.plan.code : "";
 
@@ -147,7 +162,7 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
             <div className="membership-status-tags">
               {membership?.isActive ? (
                 <>
-                  <span>每日文章生成</span>
+                  <span>每月文章总量</span>
                   <span>每月配图额度</span>
                   <span>会员权益即时生效</span>
                 </>
@@ -197,7 +212,7 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
                   </div>
                   {/* {plan && (
                     <div className="membership-quota-badge-row">
-                      <span className="quota-badge text-badge">每日 {plan.textDailyLimit} 文</span>
+                      <span className="quota-badge text-badge">每月 {getPlanTextMonthlyLimit(plan)} 文</span>
                       <span className="quota-badge image-badge">每月 {plan.imageMonthlyLimit} 图</span>
                       <span className="quota-badge account-badge">{plan.wechatAccountLimit > 500 ? '不限' : plan.wechatAccountLimit} 个公众号</span>
                     </div>
@@ -205,11 +220,15 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
                 </div>
 
                 <div className="membership-benefit-list membership-benefit-list-rich">
-                  {(plan?.features ?? preset.features).map((feature: string) => (
-                    <div key={feature}>
-                      <CheckCircleFilled />
-                      <span>{feature}</span>
-                    </div>
+                  {getDisplayFeatures(
+                    plan?.features ?? preset.features,
+                    getPlanTextMonthlyLimit(plan),
+                    (plan?.imageMonthlyLimit ?? 0) > 0,
+                  ).map((featureLabel: string) => (
+                      <div key={featureLabel}>
+                        <CheckCircleFilled />
+                        <span>{featureLabel}</span>
+                      </div>
                   ))}
                   <div>
                     <CheckCircleFilled />
@@ -224,16 +243,6 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
                   loading={loading && activePlanCode === plan?.code}
                   disabled={isCurrent}
                   onClick={() => {
-                    const limit = membership?.isActive ? (membership.plan.wechatAccountLimit ?? 1) : 1;
-
-                    if (accounts.length >= limit) {
-                      Modal.warning({
-                        title: "账号数量已达上限",
-                        content: `您当前的套餐最多允许绑定 ${limit} 个公众号账号。如需添加更多，请前往「会员中心」升级套餐。`,
-                        okText: "我知道了",
-                      });
-                      return;
-                    }
                     if (plan) onCheckout(plan.code);
                   }}
                 >

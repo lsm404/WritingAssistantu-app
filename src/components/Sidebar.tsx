@@ -21,11 +21,12 @@ type Props = {
   onLogout: () => void;
 };
 
-const quotaMap: Record<string, { textDaily: number; imageMonthly: number }> = {
-  monthly_199: { textDaily: 5, imageMonthly: 15 },
-  monthly_399: { textDaily: 10, imageMonthly: 35 },
-  monthly_599: { textDaily: 15, imageMonthly: 50 },
-  monthly_990: { textDaily: 25, imageMonthly: 90 },
+const quotaMap: Record<string, { textMonthly: number; imageMonthly: number }> = {
+  monthly_99: { textMonthly: 150, imageMonthly: 0 },
+  monthly_199: { textMonthly: 150, imageMonthly: 15 },
+  monthly_399: { textMonthly: 210, imageMonthly: 30 },
+  monthly_599: { textMonthly: 450, imageMonthly: 60 },
+  monthly_990: { textMonthly: 1500, imageMonthly: 150 },
 };
 
 function getMembershipToneClass(planCode?: string | null) {
@@ -80,8 +81,8 @@ export function Sidebar({
     ? membership.plan?.code
       ? quotaMap[membership.plan.code] ?? null
       : null
-    : { textDaily: 2, imageMonthly: 3 };
-  const textLimit = quota?.text.limit ?? defaultQuota?.textDaily ?? 0;
+    : { textMonthly: 2, imageMonthly: 3 };
+  const textLimit = quota?.text.limit ?? defaultQuota?.textMonthly ?? 0;
   const imageLimit = quota?.image.limit ?? defaultQuota?.imageMonthly ?? 0;
   const textUsed = quota?.text.used ?? 0;
   const imageUsed = quota?.image.used ?? 0;
@@ -93,7 +94,7 @@ export function Sidebar({
   const textPeriodShort =
     quota?.usesFreeRollingWindows && quota.text.resetEveryDays
       ? `文章`
-      : "今日文章";
+      : "本月文章";
   const imagePeriodShort =
     quota?.usesFreeRollingWindows && quota.image.resetEveryDays
       ? `配图`

@@ -82,6 +82,7 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
   });
 
   const isVipUser = membership?.isActive === true;
+  const effectiveWatermark = isVipUser ? watermark : true;
   const textConfigReady = Boolean(modelConfig.textApiKey.trim() && modelConfig.textModel.trim());
   const imageQuotaText = quota ? `${quota.image.used} / ${quota.image.limit}` : "-- / --";
   const textQuotaText = quota ? `${quota.text.used} / ${quota.text.limit}` : "-- / --";
@@ -89,6 +90,10 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
   useEffect(() => {
     void loadModelConfig();
   }, [authToken]);
+
+  useEffect(() => {
+    setWatermark(!isVipUser);
+  }, [isVipUser]);
 
   const loadModelConfig = async () => {
     try {
@@ -121,7 +126,7 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
         size,
         quality,
         n: imageCount,
-        watermark,
+        watermark: effectiveWatermark,
         authToken,
         baseUrl,
       };
@@ -295,8 +300,17 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography.Text strong>添加水印</Typography.Text>
-              <Switch checked={watermark} onChange={setWatermark} disabled={generating} />
+              <div>
+                <Typography.Text strong>添加水印</Typography.Text>
+                {!isVipUser ? (
+                  <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 2 }}>免费版默认保留水印，会员可关闭</div>
+                ) : null}
+              </div>
+              <Switch
+                checked={effectiveWatermark}
+                onChange={setWatermark}
+                disabled={generating || !isVipUser}
+              />
             </div>
 
             <Button

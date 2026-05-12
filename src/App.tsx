@@ -543,7 +543,7 @@ function InnerApp() {
       if (quota?.usesFreeRollingWindows && quota.text.resetEveryDays) {
         return `当前文章生成额度已用完（每 ${quota.text.resetEveryDays} 天恢复一次）。下个周期开始后会自动刷新，也可开通会员获得更高额度。`;
       }
-      return "今日文章生成额度已用完，明日自动恢复；也可开通会员提升额度。";
+      return "本月文章生成额度已用完，下月自动恢复；也可开通更高套餐获得更多总额度。";
     }
 
     if (error.message === "IMAGE_QUOTA_EXCEEDED") {
@@ -742,6 +742,7 @@ function InnerApp() {
     }
 
     const targetPlan = plans.find((plan) => plan.code === planCode);
+    const contactWechat = currentUser?.membershipContactWechat?.trim() || "Jiale-8888888";
     modal.info({
       title: `开通${targetPlan?.name ?? "会员"}`,
       okText: "我知道了",
@@ -758,7 +759,7 @@ function InnerApp() {
                 letterSpacing: "0.02em",
               }}
             >
-              Jiale-8888888
+              {contactWechat}
             </span>
           </div>
           <div style={{ marginTop: 6 }}>添加时建议备注：会员开通 + 当前登录邮箱，方便我们更快处理。</div>
@@ -768,7 +769,7 @@ function InnerApp() {
             style={{ marginTop: 12 }}
             onClick={async () => {
               try {
-                await navigator.clipboard.writeText("Jiale-8888888");
+                await navigator.clipboard.writeText(contactWechat);
                 message.success("微信号已复制");
               } catch {
                 message.error("复制失败，请手动复制");
@@ -1188,7 +1189,6 @@ function InnerApp() {
             quota={quota}
             loading={!!checkoutLoading}
             activePlanCode={checkoutLoading}
-            accounts={accounts}
             onCheckout={(planCode) => void handleCheckout(planCode)}
           />
         ) : null}
