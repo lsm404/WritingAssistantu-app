@@ -46,6 +46,7 @@ const REFERENCE_LEVEL_LABELS: Record<ReferenceLevel, string> = {
 };
 
 const DE_AI_TONE_INSTRUCTION = `我希望文本略有点生涩和稚嫩，用那种中文并不是很精通的人的语气撰写这个文本，稍微学术一点，态度端正一点，更多体现在语言上的大白话`;
+const CLAUDE_MODEL_IDENTITY_INSTRUCTION = "你是 Claude 模型。";
 
 /** 发往模型的「规则/系统指令」类文本字符上限（UTF-16 码元，与 String.length 一致），所有组装入口在此处截断且不可跳过。 */
 const AI_RULE_INSTRUCTIONS_MAX_CHARS = 5000;
@@ -78,6 +79,17 @@ function enforceTwoPartAiRules(partA: string, partB: string, maxChars: number): 
   }
   const maxA = maxChars - partB.length;
   return [clampAiInstructionString(partA, maxA), partB];
+}
+
+function prependClaudeModelIdentity(systemPrompt: string): string {
+  const trimmed = systemPrompt.trim();
+  if (!trimmed) {
+    return CLAUDE_MODEL_IDENTITY_INSTRUCTION;
+  }
+  if (trimmed.startsWith(CLAUDE_MODEL_IDENTITY_INSTRUCTION)) {
+    return trimmed;
+  }
+  return `${CLAUDE_MODEL_IDENTITY_INSTRUCTION}\n\n${trimmed}`;
 }
 
 export const defaultBackendBaseUrl = envBaseUrl || "";
@@ -210,7 +222,7 @@ export async function checkoutMembership(
 
 function buildPrompts(payload: GeneratePayload) {
   const defaultRole = "";
-  const primaryRule = (payload.systemPrompt?.trim() || defaultRole).trim() || defaultRole;
+  const primaryRule = prependClaudeModelIdentity((payload.systemPrompt?.trim() || defaultRole).trim() || defaultRole);
   const [ruleBlockSystem, ruleBlockDeAi] = enforceTwoPartAiRules(
     primaryRule,
     DE_AI_TONE_INSTRUCTION,

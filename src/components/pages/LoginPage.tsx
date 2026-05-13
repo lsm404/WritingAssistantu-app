@@ -98,21 +98,21 @@ export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, on
             </div>
 
             {mode === "register" ? (
-            <label className="auth-field auth-field-invite-code">
-              <span>代理人邀请码（8 位字母）</span>
-              <Input
-                className="premium-input invite-code-input"
-                size="large"
-                prefix={<GiftOutlined className="input-icon" />}
-                value={form.inviteCode}
-                onChange={(event) => {
-                  const v = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 8);
-                  onFieldChange("inviteCode", v);
-                }}
-                placeholder="例如：ABCDEFGH"
-                maxLength={8}
-              />
-            </label>
+              <label className="auth-field auth-field-invite-code">
+                <span>代理人邀请码（8 位字母）</span>
+                <Input
+                  className="premium-input invite-code-input"
+                  size="large"
+                  prefix={<GiftOutlined className="input-icon" />}
+                  value={form.inviteCode}
+                  onChange={(event) => {
+                    const v = event.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 8);
+                    onFieldChange("inviteCode", v);
+                  }}
+                  placeholder="例如：ABCDEFGH"
+                  maxLength={8}
+                />
+              </label>
             ) : null}
 
             <label className="auth-field">
@@ -128,7 +128,7 @@ export function LoginPage({ mode, loading, form, onModeChange, onFieldChange, on
             </label>
 
             <label className="auth-field">
-              <span>安全密码</span>
+              <span>密码</span>
               <Input.Password
                 className="premium-input"
                 size="large"

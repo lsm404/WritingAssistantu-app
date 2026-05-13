@@ -21,14 +21,6 @@ type Props = {
   onLogout: () => void;
 };
 
-const quotaMap: Record<string, { textMonthly: number; imageMonthly: number }> = {
-  monthly_99: { textMonthly: 150, imageMonthly: 0 },
-  monthly_199: { textMonthly: 150, imageMonthly: 15 },
-  monthly_399: { textMonthly: 210, imageMonthly: 30 },
-  monthly_599: { textMonthly: 450, imageMonthly: 60 },
-  monthly_990: { textMonthly: 1500, imageMonthly: 150 },
-};
-
 function getMembershipToneClass(planCode?: string | null) {
   switch (planCode) {
     case "monthly_199":
@@ -78,8 +70,11 @@ export function Sidebar({
   const membershipLabel = membership?.isActive ? membership.plan.name : "普通用户";
   const membershipToneClass = getMembershipToneClass(membership?.plan?.code);
   const defaultQuota = membership?.isActive
-    ? membership.plan?.code
-      ? quotaMap[membership.plan.code] ?? null
+    ? membership.plan
+      ? {
+          textMonthly: membership.plan.textMonthlyLimit ?? (membership.plan.textDailyLimit ?? 0) * 30,
+          imageMonthly: membership.plan.imageMonthlyLimit ?? 0,
+        }
       : null
     : { textMonthly: 2, imageMonthly: 3 };
   const textLimit = quota?.text.limit ?? defaultQuota?.textMonthly ?? 0;

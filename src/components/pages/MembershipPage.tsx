@@ -90,12 +90,10 @@ function normalizeFeatureLabel(feature: string, textMonthlyLimit: number) {
   return feature.replace(/每天\s*\d+\s*次文字创作/g, `每月 ${textMonthlyLimit} 次文章生成额度`);
 }
 
-function getDisplayFeatures(features: string[], textMonthlyLimit: number, canGenerateImages: boolean) {
-  const normalized = features.map((feature) => normalizeFeatureLabel(feature, textMonthlyLimit));
-  if (canGenerateImages && !normalized.some((feature) => feature.includes("去水印"))) {
-    normalized.splice(Math.min(2, normalized.length), 0, "会员生图支持去水印");
-  }
-  return normalized;
+function getDisplayFeatures(features: string[], textMonthlyLimit: number) {
+  return features
+    .map((feature) => normalizeFeatureLabel(String(feature ?? "").trim(), textMonthlyLimit))
+    .filter((feature) => feature.length > 0);
 }
 
 function getStatusText(membership: UserMembership | null, quotaSummary: UserQuotaSummary | null) {
@@ -223,7 +221,6 @@ export function MembershipPage({ plans, membership, quota, loading, activePlanCo
                   {getDisplayFeatures(
                     plan?.features ?? preset.features,
                     getPlanTextMonthlyLimit(plan),
-                    (plan?.imageMonthlyLimit ?? 0) > 0,
                   ).map((featureLabel: string) => (
                       <div key={featureLabel}>
                         <CheckCircleFilled />
