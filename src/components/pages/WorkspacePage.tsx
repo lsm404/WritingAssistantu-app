@@ -13,11 +13,9 @@ import {
 import type { GeneratePayload, WechatAccount } from "../../lib/types";
 import {
   parseWorkspaceOptionalEnum,
-  parseWorkspaceOptionalField,
   parseWorkspaceOptionalImageCount,
   WORKSPACE_TOPIC_MAX_CHARS,
   workspaceOptionalEnumValue,
-  workspaceOptionalFieldValue,
   workspaceOptionalImageCountValue,
   type PromptSlot,
 } from "../../lib/app-ui";
@@ -32,9 +30,6 @@ type Props = {
   isGeneratingImages?: boolean;
   isSendingDraft?: boolean;
   imageCountOptions: Array<{ label: string; value: string | number }>;
-  modeOptions: Array<{ label: string; value: string }>;
-  expressionModeOptions: Array<{ label: string; value: string }>;
-  audienceOptions: Array<{ label: string; value: string }>;
   styleOptions: Array<{ label: string; value: string }>;
   rewriteGoalOptions: Array<{ label: string; value: string }>;
   referenceFocusOptions: Array<{ label: string; value: string }>;
@@ -62,9 +57,6 @@ export function WorkspacePage({
   isGeneratingImages = false,
   isSendingDraft = false,
   imageCountOptions,
-  modeOptions,
-  expressionModeOptions,
-  audienceOptions,
   styleOptions,
   rewriteGoalOptions,
   referenceFocusOptions,
@@ -177,25 +169,13 @@ export function WorkspacePage({
                     options={promptSlots.map((s) => ({ label: s.name, value: s.id }))}
                   />
                 </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-                  <div className="form-item">
-                    <div className="form-item-label">目标读者</div>
-                    <Select
-                      value={workspaceOptionalFieldValue(articleDraft.audience)}
-                      onChange={(value) => onArticleFieldChange("audience", parseWorkspaceOptionalField(value))}
-                      options={audienceOptions}
-                    />
-                  </div>
-
-                  <div className="form-item">
-                    <div className="form-item-label">配图数量</div>
-                    <Select
-                      value={workspaceOptionalImageCountValue(articleDraft.imageCount)}
-                      onChange={(value) => onArticleFieldChange("imageCount", parseWorkspaceOptionalImageCount(value))}
-                      options={imageCountOptions}
-                    />
-                  </div>
+                <div className="form-item">
+                  <div className="form-item-label">{"\u914d\u56fe\u6570\u91cf"}</div>
+                  <Select
+                    value={workspaceOptionalImageCountValue(articleDraft.imageCount)}
+                    onChange={(value) => onArticleFieldChange("imageCount", parseWorkspaceOptionalImageCount(value))}
+                    options={imageCountOptions}
+                  />
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginTop: "4px" }}>
@@ -222,19 +202,6 @@ export function WorkspacePage({
                       />
                     </div>
                   )}
-                  <div className="form-item" style={{ gridColumn: "span 2" }}>
-                    <div className="form-item-label">表达处理</div>
-                    <Select
-                      value={workspaceOptionalEnumValue(articleDraft.expressionMode)}
-                      onChange={(value) =>
-                        onArticleFieldChange(
-                          "expressionMode",
-                          parseWorkspaceOptionalEnum<NonNullable<GeneratePayload["expressionMode"]>>(value),
-                        )
-                      }
-                      options={expressionModeOptions}
-                    />
-                  </div>
                 </div>
 
                 {articleDraft.creationMode === "rewrite" ? (

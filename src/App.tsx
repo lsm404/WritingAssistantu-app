@@ -44,10 +44,7 @@ import {
   summarizeMarkdown,
   stripUnicodeReplacementChars,
   type SidebarView,
-  workspaceAudienceOptions,
-  workspaceExpressionModeOptions,
   workspaceImageCountOptions,
-  workspaceModeOptions,
   workspaceReferenceFocusOptions,
   workspaceReferenceLevelOptions,
   workspaceRewriteGoalOptions,
@@ -1186,9 +1183,6 @@ function InnerApp() {
             isGeneratingImages={isGeneratingImages}
             isSendingDraft={isSendingDraft}
             imageCountOptions={workspaceImageCountOptions}
-            modeOptions={workspaceModeOptions}
-            expressionModeOptions={workspaceExpressionModeOptions}
-            audienceOptions={workspaceAudienceOptions}
             styleOptions={workspaceStyleOptions}
             rewriteGoalOptions={workspaceRewriteGoalOptions}
             referenceFocusOptions={workspaceReferenceFocusOptions}
