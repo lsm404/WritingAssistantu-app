@@ -117,7 +117,7 @@ export function WorkspacePage({
 
             {!settingsCollapsed ? (
               <div className="form-section">
-                <div className="form-item">
+                {/* <div className="form-item">
                   <div className="form-item-label">创作模式</div>
                   <Radio.Group
                     className="mode-radio-group"
@@ -128,7 +128,7 @@ export function WorkspacePage({
                     <Radio.Button value="synthesized">原创生成</Radio.Button>
                     <Radio.Button value="rewrite">参考改写</Radio.Button>
                   </Radio.Group>
-                </div>
+                </div> */}
 
                 <div className="form-item">
                   <div className="form-item-label">
