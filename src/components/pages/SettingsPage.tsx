@@ -2,7 +2,7 @@ import { Button, Typography, Space, Tag, Badge } from "antd";
 import { 
   SyncOutlined,
 } from "@ant-design/icons";
-import type { RuntimeInfo } from "../../lib/types";
+import type { MembershipPlan, RuntimeInfo } from "../../lib/types";
 import { useState } from "react";
 
 const { Title, Text } = Typography;
@@ -10,6 +10,12 @@ const { Title, Text } = Typography;
 interface SettingsPageProps {
   runtimeInfo: RuntimeInfo | null;
   onCheckUpdate: () => Promise<void>;
+}
+
+function getPlanCategoryLabel(plan?: Pick<MembershipPlan, "planCategory" | "imageMonthlyLimit"> | null) {
+  return (plan?.planCategory ?? ((plan?.imageMonthlyLimit ?? 0) > 0 ? "text_image" : "text_only")) === "text_only"
+    ? "文案创作"
+    : "图文创作";
 }
 
 export function SettingsPage({ runtimeInfo, onCheckUpdate }: SettingsPageProps) {
