@@ -74,6 +74,7 @@ const SETTINGS_COLLAPSED_STORAGE_KEY = "openclaw.settingsCollapsed";
 const STARTUP_AUTH_TIMEOUT_MS = 5000;
 const STARTUP_UPDATE_CHECK_DELAY_MS = 3500;
 const WECHAT_COVER_MAX_BYTES = 5 * 1024 * 1024;
+const GENERIC_PROMPT_SWITCH_WARNING = "当前通用提示词已深度优化，建议谨慎切换以确保输出质量。";
 
 /** 历史版本与本应用曾写入的本地草稿/公众号缓存，启动时清除（不再使用 localStorage 持久化这些内容） */
 const LEGACY_LOCAL_CACHE_KEYS = [
@@ -92,6 +93,7 @@ function pickPromptCreatedAt(p: Record<string, unknown>): string | undefined {
 }
 
 const REGISTER_ERROR_HINT: Record<string, string> = {
+  REGISTRATION_IP_REQUIRED: "未获取到真实注册 IP，请检查服务器反向代理配置。",
   REGISTRATION_IP_LIMIT: "当前 IP 在近期注册次数过多，请稍后再试。",
   REGISTRATION_SUBNET_LIMIT: "当前网络环境注册次数过多，请稍后再试。",
   REGISTRATION_DEVICE_LIMIT: "本设备注册账号数已达上限，请使用已有账号登录。",
@@ -506,8 +508,8 @@ function InnerApp() {
         createdAt: pickPromptCreatedAt(raw) ?? new Date().toISOString(),
       };
       setPromptSlots((current) => [...current, newPrompt]);
-      setActivePromptId(newPrompt.id);
-      setArticleField("systemPrompt", newPrompt.content);
+      setActivePromptId("prompt-default");
+      setArticleField("systemPrompt", promptSlots.find((slot) => slot.id === "prompt-default")?.content ?? "");
       message.success("提示词已保存");
       return true;
     } catch (e) {
@@ -573,9 +575,13 @@ function InnerApp() {
   };
 
   const switchPrompt = (id: string) => {
-    setActivePromptId(id);
+    if (id === activePromptId) return;
     const target = promptSlots.find((slot) => slot.id === id);
+    setActivePromptId(id);
     if (target) setArticleField("systemPrompt", target.content ?? "");
+    if (target && id !== "prompt-default") {
+      message.warning(GENERIC_PROMPT_SWITCH_WARNING);
+    }
   };
 
   const refreshCurrentUser = async (token: string) => {
@@ -1015,6 +1021,10 @@ function InnerApp() {
     }
 
     const requestDraft = isTextOnlyPlan ? { ...articleDraft, imageCount: 0, imagePrompt: "" } : articleDraft;
+    const defaultPrompt = promptSlots.find((slot) => slot.id === "prompt-default");
+    const requestSystemPrompt = regenerateForDeAi
+      ? defaultPrompt?.content ?? ""
+      : (requestDraft.systemPrompt ?? "").trim() || activePrompt?.content || "";
     const previousResultMarkdown = resultMarkdown;
     const previousDraftMeta = draftMeta;
     let hasReceivedArticleDelta = false;
@@ -1031,7 +1041,7 @@ function InnerApp() {
         {
           ...requestDraft,
           regenerateForDeAi,
-          systemPrompt: (requestDraft.systemPrompt ?? "").trim() || activePrompt?.content || "",
+          systemPrompt: requestSystemPrompt,
         },
         (delta) => {
           setResultMarkdown((prev) => {
