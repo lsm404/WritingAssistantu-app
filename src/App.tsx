@@ -1041,6 +1041,7 @@ function InnerApp() {
         {
           ...requestDraft,
           regenerateForDeAi,
+          currentArticleMd: regenerateForDeAi ? previousResultMarkdown : undefined,
           systemPrompt: requestSystemPrompt,
         },
         (delta) => {
