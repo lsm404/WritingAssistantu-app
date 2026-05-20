@@ -294,7 +294,7 @@ export const imageCountOptions = [
 export const expressionModeOptions: Array<{ label: string; value: ExpressionMode }> = [
   { label: "标准表达", value: "standard" },
   { label: "更口语化", value: "conversational" },
-  // { label: "去 AI 味", value: "de_ai" },
+  // { label: "发表前润色", value: "de_ai" },
   { label: "观点更强", value: "opinionated" },
 ];
 

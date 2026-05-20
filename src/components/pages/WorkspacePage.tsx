@@ -319,7 +319,7 @@ export function WorkspacePage({
                 <div className="result-loading-overlay">
                   <div className="result-loading-inner">
                     <Spin
-                      indicator={<LoadingOutlined style={{ fontSize: 32, color: "#6366f1" }} spin />}
+                      indicator={<LoadingOutlined style={{ fontSize: 32, color: "#5aa978" }} spin />}
                     />
                     <span className="result-loading-text">正在发送到草稿箱...</span>
                   </div>
@@ -346,8 +346,8 @@ export function WorkspacePage({
                 {resultMarkdown.trim() ? (
                   <span className="results-footer-right">
                     <Popconfirm
-                      title="二次去AI"
-                      description="基于当前稿件定向清洗高风险表达，不重新扩写内容。"
+                      title="二次润色"
+                      description="基于当前稿件做发表前质检，优化表达、事实边界和阅读节奏。"
                       okText="开始优化"
                       cancelText="先不"
                       placement="topRight"
@@ -359,7 +359,7 @@ export function WorkspacePage({
                         icon={<ReloadOutlined />}
                         disabled={isGenerating || isSendingDraft}
                       >
-                        二次去AI
+                        二次润色
                       </Button>
                     </Popconfirm>
                   </span>

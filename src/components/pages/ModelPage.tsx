@@ -26,13 +26,13 @@ export function ModelPage(_props: Props) {
             style={{
               width: 52,
               height: 52,
-              borderRadius: 16,
-              background: "linear-gradient(145deg, #eef0ff, #e0e2ff)",
+              borderRadius: 8,
+              background: "linear-gradient(145deg, #e9f5ee, #d8eadf)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 22,
-              color: "#6366f1",
+              color: "#438c61",
             }}
           >
             <LockOutlined />

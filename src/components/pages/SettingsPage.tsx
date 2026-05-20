@@ -47,12 +47,12 @@ export function SettingsPage({ runtimeInfo, onCheckUpdate }: SettingsPageProps) 
           <div className="app-logo-container" style={{ 
             width: 100, 
             height: 100, 
-            background: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)',
-            borderRadius: 28,
+            background: 'linear-gradient(135deg, #7cc899 0%, #4f9f70 100%)',
+            borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 16px 32px rgba(124, 58, 237, 0.2)'
+            boxShadow: '0 16px 32px rgba(69, 144, 97, 0.2)'
           }}>
             <svg viewBox="0 0 32 32" width="56" height="56" fill="white">
               <path d="M16 2 C16 10 22 16 30 16 C22 16 16 22 16 30 C16 22 10 16 2 16 C10 16 16 10 16 2 Z" opacity="0.96" />
@@ -71,14 +71,14 @@ export function SettingsPage({ runtimeInfo, onCheckUpdate }: SettingsPageProps) 
           <div style={{ 
             background: '#f8fafc', 
             padding: '12px 32px', 
-            borderRadius: 16, 
+            borderRadius: 8, 
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '12px'
           }}>
             <Text type="secondary" style={{ fontSize: 15 }}>当前版本</Text>
-            <Tag color="purple" style={{ borderRadius: 8, fontWeight: 800, padding: '2px 10px', fontSize: 15, margin: 0 }}>
+            <Tag color="green" style={{ borderRadius: 8, fontWeight: 800, padding: '2px 10px', fontSize: 15, margin: 0 }}>
               v{runtimeInfo?.version || '1.0.0'}
             </Tag>
             <Badge status="processing" text={<Text type="secondary" style={{ fontSize: 13, color: '#94a3b8' }}>Stable Build</Text>} />
@@ -93,14 +93,14 @@ export function SettingsPage({ runtimeInfo, onCheckUpdate }: SettingsPageProps) 
               loading={checking}
               onClick={handleCheck}
               style={{ 
-                borderRadius: 16, 
+                borderRadius: 8, 
                 height: 56, 
                 padding: '0 40px',
                 fontSize: 17,
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                background: 'linear-gradient(135deg, #66ba84 0%, #4f9f70 100%)',
                 border: 'none',
-                boxShadow: '0 12px 24px rgba(124, 58, 237, 0.3)',
+                boxShadow: '0 12px 24px rgba(69, 144, 97, 0.24)',
                 transition: 'all 0.3s ease'
               }}
             >
@@ -114,7 +114,7 @@ export function SettingsPage({ runtimeInfo, onCheckUpdate }: SettingsPageProps) 
       <style dangerouslySetInnerHTML={{ __html: `
         .ant-btn-primary:hover {
           transform: translateY(-2px);
-          box-shadow: 0 16px 32px rgba(124, 58, 237, 0.4) !important;
+          box-shadow: 0 16px 32px rgba(69, 144, 97, 0.32) !important;
         }
         .settings-page {
           animation: fadeIn 0.5s ease-out;

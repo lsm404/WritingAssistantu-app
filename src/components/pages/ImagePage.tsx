@@ -196,7 +196,7 @@ export function ImagePage({ membership, quota, authToken, baseUrl, onQuotaChange
     <div style={{ padding: "20px 24px", maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-          <PictureOutlined style={{ fontSize: 24, color: "#6366f1" }} />
+          <PictureOutlined style={{ fontSize: 24, color: "#438c61" }} />
           <Typography.Title level={2} style={{ margin: 0 }}>
             AI 图片生成
           </Typography.Title>

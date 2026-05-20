@@ -617,7 +617,7 @@ function InnerApp() {
     }
 
     if (error.message === "DE_AI_QUOTA_EXCEEDED") {
-      return "二次去 AI 额度已用完，请等下个周期刷新后再使用。";
+      return "二次润色额度已用完，请等下个周期刷新后再使用。";
     }
 
     if (error.message === "UNAUTHORIZED") {
@@ -632,8 +632,8 @@ function InnerApp() {
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith("![](") && !line.startsWith("# "));
-    
-    const styleRequirement = imagePrompt 
+
+    const styleRequirement = imagePrompt
       ? `图片具体要求：${imagePrompt}`
       : "风格要求：简洁、质感、高级、适合公众号排版配图。";
 
@@ -664,7 +664,7 @@ function InnerApp() {
     }
 
     const lines = articleMd.split("\n");
-    
+
     // 寻找潜在的插入点：优先找二级标题，其次三级标题，最后找段落间隙
     let insertionPoints = lines
       .map((line, index) => ({ line: line.trim(), index, type: 'h2' }))
@@ -698,7 +698,7 @@ function InnerApp() {
       const pointIdx = Math.floor((i * pointCount) / imageCount);
       const point = insertionPoints[pointIdx];
       const imageUrl = imageUrls[i];
-      
+
       // 如果是标题，插入在标题之后；如果是段落起始，插入在段落之前
       const insertAt = point.type === 'p' ? point.index : point.index + 1;
       resultLines.splice(insertAt, 0, "", `![](${imageUrl})`, "");
@@ -821,7 +821,7 @@ function InnerApp() {
             <span
               style={{
                 marginLeft: 6,
-                color: "#7c3aed",
+                color: "#438c61",
                 fontWeight: 800,
                 letterSpacing: "0.02em",
               }}
@@ -1449,7 +1449,7 @@ export default function App() {
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: "#6366f1",
+          colorPrimary: "#5aa978",
           borderRadius: 8,
           fontSize: 13,
           controlHeight: 34,

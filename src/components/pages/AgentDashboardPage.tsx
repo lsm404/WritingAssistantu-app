@@ -108,7 +108,7 @@ export function AgentDashboardPage({ authToken, baseUrl }: Props) {
                 title="已邀请用户"
                 value={users.length}
                 prefix={<TeamOutlined />}
-                valueStyle={{ color: '#7c3aed' }}
+                valueStyle={{ color: '#438c61' }}
               />
             </Card>
           </Col>
