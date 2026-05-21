@@ -7,7 +7,7 @@ import {
   EditOutlined,
   FileTextOutlined,
 } from "@ant-design/icons";
-import type { PromptSlot } from "../../lib/app-ui";
+import { isBuiltInPrompt, type PromptSlot } from "../../lib/app-ui";
 
 const { TextArea } = Input;
 const { Paragraph } = Typography;
@@ -51,7 +51,7 @@ export function PromptPage({
   const [editContent, setEditContent] = useState("");
 
   const librarySlots = useMemo(
-    () => promptSlots.filter((s) => s.id !== "prompt-default"),
+    () => promptSlots.filter((s) => !isBuiltInPrompt(s)),
     [promptSlots],
   );
 
@@ -237,7 +237,7 @@ export function PromptPage({
       </Modal>
 
       <Modal
-        title={editSlot?.id === "prompt-default" ? "编辑通用模板" : "编辑提示词"}
+        title={isBuiltInPrompt(editSlot) ? "编辑内置模板" : "编辑提示词"}
         open={!!editSlot}
         onCancel={() => setEditSlot(null)}
         onOk={handleEditModalOk}
@@ -258,7 +258,7 @@ export function PromptPage({
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 maxLength={16}
-                disabled={editSlot.id === "prompt-default"}
+                disabled={isBuiltInPrompt(editSlot)}
               />
             </div>
             <div className="form-item" style={{ marginTop: 16 }}>

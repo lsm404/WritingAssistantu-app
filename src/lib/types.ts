@@ -25,6 +25,8 @@ export type ExpressionMode =
   | "de_ai"
   | "opinionated";
 
+export type PromptVariant = "aigc" | "classic";
+
 export interface RuntimeInfo {
   platform: string;
   arch: string;
@@ -54,6 +56,7 @@ export interface GeneratePayload {
   imagePrompt?: string;
   regenerateForDeAi?: boolean;
   clientSource?: string;
+  promptVariant?: PromptVariant;
 }
 
 export interface WechatAccount {
@@ -161,6 +164,7 @@ export interface GenerateResponse {
     length: ArticleLength;
     mode?: WritingMode;
     creationMode: "synthesized" | "rewrite";
+    promptVariant?: PromptVariant;
   };
   quota?: UserQuotaSummary;
 }

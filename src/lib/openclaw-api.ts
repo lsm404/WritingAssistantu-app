@@ -166,6 +166,7 @@ export function buildGeneratePayload(payload: GeneratePayload) {
     expression_mode: payload.expressionMode || undefined,
     enable_web_search: payload.enableWebSearch ?? undefined,
     regenerate_for_de_ai: payload.regenerateForDeAi || undefined,
+    prompt_variant: payload.promptVariant || undefined,
     client_source: payload.clientSource || "client",
   };
 }
@@ -230,6 +231,7 @@ export async function generateArticle(
       length: GeneratePayload["length"];
       mode?: GeneratePayload["mode"];
       creation_mode: GeneratePayload["creationMode"];
+      prompt_variant?: GeneratePayload["promptVariant"];
     };
     quota?: UserQuotaSummary;
   };
@@ -246,6 +248,7 @@ export async function generateArticle(
       length: data.meta.length,
       mode: data.meta.mode,
       creationMode: data.meta.creation_mode,
+      promptVariant: data.meta.prompt_variant,
     },
     quota: data.quota,
   };

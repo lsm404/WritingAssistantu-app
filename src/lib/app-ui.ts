@@ -2,6 +2,7 @@ import type {
   ArticleLength,
   ExpressionMode,
   GeneratePayload,
+  PromptVariant,
   ReferenceFocus,
   ReferenceLevel,
   RewriteGoal,
@@ -17,6 +18,8 @@ export type PromptSlot = {
   defaultName: string;
   content: string;
   defaultContent: string;
+  builtIn?: boolean;
+  variant?: PromptVariant;
   /** 服务端创建时间（ISO），可选 */
   createdAt?: string;
 };
@@ -232,6 +235,9 @@ export function emptyWechatAccount(): WechatAccount {
   };
 }
 
+export const DEFAULT_AIGC_PROMPT_ID = "prompt-default";
+export const DEFAULT_CLASSIC_PROMPT_ID = "prompt-classic";
+
 const PROMPT_GENERIC = "";
 
 
@@ -239,13 +245,32 @@ const PROMPT_GENERIC = "";
 export function defaultPromptSlots(): PromptSlot[] {
   return [
     {
-      id: "prompt-default",
-      name: "通用模板",
-      defaultName: "通用模板",
+      id: DEFAULT_AIGC_PROMPT_ID,
+      name: "通用模板（AIGC增强）",
+      defaultName: "通用模板（AIGC增强）",
       content: PROMPT_GENERIC,
       defaultContent: PROMPT_GENERIC,
+      builtIn: true,
+      variant: "aigc",
+    },
+    {
+      id: DEFAULT_CLASSIC_PROMPT_ID,
+      name: "经典模板",
+      defaultName: "经典模板",
+      content: PROMPT_GENERIC,
+      defaultContent: PROMPT_GENERIC,
+      builtIn: true,
+      variant: "classic",
     },
   ];
+}
+
+export function isBuiltInPrompt(slotOrId?: PromptSlot | string | null): boolean {
+  if (!slotOrId) return false;
+  if (typeof slotOrId === "string") {
+    return slotOrId === DEFAULT_AIGC_PROMPT_ID || slotOrId === DEFAULT_CLASSIC_PROMPT_ID;
+  }
+  return Boolean(slotOrId.builtIn) || isBuiltInPrompt(slotOrId.id);
 }
 
 export function defaultArticleDraft(): GeneratePayload {

@@ -34,10 +34,12 @@ import type {
 } from "./lib/types";
 import {
   emptyWechatAccount,
+  DEFAULT_AIGC_PROMPT_ID,
   defaultArticleDraft,
   defaultDraftMeta,
   defaultPromptSlots,
   extractTitleFromMarkdown,
+  isBuiltInPrompt,
   markdownToWechatHtml,
   type DraftMeta,
   type PromptSlot,
@@ -163,7 +165,7 @@ function InnerApp() {
   accountsRef.current = accounts;
   activeAccountIdRef.current = activeAccountId;
   const [promptSlots, setPromptSlots] = useState<PromptSlot[]>(() => defaultPromptSlots());
-  const [activePromptId, setActivePromptId] = useState("prompt-default");
+  const [activePromptId, setActivePromptId] = useState(DEFAULT_AIGC_PROMPT_ID);
   const [articleDraft, setArticleDraft] = useState<GeneratePayload>(() => defaultArticleDraft());
   const [draftMeta, setDraftMeta] = useState<DraftMeta>(() => defaultDraftMeta());
   const [resultMarkdown, setResultMarkdown] = useState("");
@@ -464,14 +466,14 @@ function InnerApp() {
 
   const updateActivePrompt = async (patch: Partial<PromptSlot>) => {
     if (!activePrompt) return;
-    if (activePrompt.id === "prompt-default") {
+    if (isBuiltInPrompt(activePrompt)) {
       if (patch.name !== undefined && patch.name !== activePrompt.name) {
         message.warning("通用模板不能修改名称，但您可以新建提示词");
       }
       if (patch.content !== undefined) {
         setPromptSlots((current) =>
           current.map((slot) =>
-            slot.id === "prompt-default" ? { ...slot, content: patch.content as string } : slot,
+            slot.id === activePrompt.id ? { ...slot, content: patch.content as string } : slot,
           ),
         );
       }
@@ -508,8 +510,8 @@ function InnerApp() {
         createdAt: pickPromptCreatedAt(raw) ?? new Date().toISOString(),
       };
       setPromptSlots((current) => [...current, newPrompt]);
-      setActivePromptId("prompt-default");
-      setArticleField("systemPrompt", promptSlots.find((slot) => slot.id === "prompt-default")?.content ?? "");
+      setActivePromptId(DEFAULT_AIGC_PROMPT_ID);
+      setArticleField("systemPrompt", promptSlots.find((slot) => slot.id === DEFAULT_AIGC_PROMPT_ID)?.content ?? "");
       message.success("提示词已保存");
       return true;
     } catch (e) {
@@ -526,11 +528,11 @@ function InnerApp() {
       message.warning("请输入提示词名称");
       return false;
     }
-    if (slotId === "prompt-default") {
+    if (isBuiltInPrompt(slotId)) {
       setPromptSlots((current) =>
-        current.map((s) => (s.id === "prompt-default" ? { ...s, content } : s)),
+        current.map((s) => (s.id === slotId ? { ...s, content } : s)),
       );
-      if (activePromptId === "prompt-default") {
+      if (activePromptId === slotId) {
         setArticleField("systemPrompt", content);
       }
       message.success("已保存");
@@ -556,7 +558,7 @@ function InnerApp() {
   };
 
   const deletePromptById = async (id: string) => {
-    if (id === "prompt-default") {
+    if (isBuiltInPrompt(id)) {
       message.warning("无法删除通用模板");
       return;
     }
@@ -565,7 +567,7 @@ function InnerApp() {
       const filtered = promptSlots.filter((p) => p.id !== id);
       setPromptSlots(filtered);
       if (activePromptId === id) {
-        setActivePromptId("prompt-default");
+        setActivePromptId(DEFAULT_AIGC_PROMPT_ID);
         setArticleField("systemPrompt", filtered[0]?.content ?? "");
       }
       message.success("提示词已删除");
@@ -579,7 +581,7 @@ function InnerApp() {
     const target = promptSlots.find((slot) => slot.id === id);
     setActivePromptId(id);
     if (target) setArticleField("systemPrompt", target.content ?? "");
-    if (target && id !== "prompt-default") {
+    if (target && !isBuiltInPrompt(target)) {
       message.warning(GENERIC_PROMPT_SWITCH_WARNING);
     }
   };
@@ -1021,7 +1023,8 @@ function InnerApp() {
     }
 
     const requestDraft = isTextOnlyPlan ? { ...articleDraft, imageCount: 0, imagePrompt: "" } : articleDraft;
-    const defaultPrompt = promptSlots.find((slot) => slot.id === "prompt-default");
+    const defaultPrompt = promptSlots.find((slot) => slot.id === DEFAULT_AIGC_PROMPT_ID);
+    const requestPromptVariant = regenerateForDeAi ? "aigc" : activePrompt?.variant || "aigc";
     const requestSystemPrompt = regenerateForDeAi
       ? defaultPrompt?.content ?? ""
       : (requestDraft.systemPrompt ?? "").trim() || activePrompt?.content || "";
@@ -1043,6 +1046,7 @@ function InnerApp() {
           regenerateForDeAi,
           currentArticleMd: regenerateForDeAi ? previousResultMarkdown : undefined,
           systemPrompt: requestSystemPrompt,
+          promptVariant: requestPromptVariant,
         },
         (delta) => {
           setResultMarkdown((prev) => {
