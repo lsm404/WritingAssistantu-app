@@ -1,6 +1,6 @@
 [package]
 name = "openclaw-tauri"
-version = "1.1.6"
+version = "1.1.7"
 description = "OpenClaw desktop client powered by Tauri"
 authors = ["OpenClaw"]
 edition = "2021"
