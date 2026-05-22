@@ -72,6 +72,102 @@ export function stripUnicodeReplacementChars(text: string) {
     .replace(/\s+([，。！？；：])/g, "$1");
 }
 
+function stripInlineMarkdownForText(text: string) {
+  return String(text || "")
+    .replace(/!\[[^\]]*]\([^)]+\)/g, "")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/_([^_\n]+)_/g, "$1")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?[^>]+>/g, "")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
+
+export function markdownToPreviewCopyText(markdown: string, title?: string) {
+  const normalized = stripLeadingTitleHeading(markdown).replace(/\r\n/g, "\n").trim();
+  const output: string[] = [];
+  const previewTitle = String(title || "").trim();
+  let paragraph: string[] = [];
+
+  if (previewTitle) {
+    output.push(previewTitle, "");
+  }
+
+  const pushBlank = () => {
+    if (output.length && output[output.length - 1] !== "") {
+      output.push("");
+    }
+  };
+
+  const flushParagraph = () => {
+    const text = paragraph.filter(Boolean).join("\n").trim();
+    paragraph = [];
+    if (!text) return;
+    output.push(text);
+  };
+
+  for (const rawLine of normalized.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      flushParagraph();
+      pushBlank();
+      continue;
+    }
+
+    if (/^!\[[^\]]*]\([^)]+\)$/.test(line)) {
+      flushParagraph();
+      pushBlank();
+      continue;
+    }
+
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
+      flushParagraph();
+      pushBlank();
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      pushBlank();
+      output.push(stripInlineMarkdownForText(headingMatch[2]));
+      pushBlank();
+      continue;
+    }
+
+    const quoteMatch = line.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      flushParagraph();
+      output.push(stripInlineMarkdownForText(quoteMatch[1]));
+      continue;
+    }
+
+    const ulMatch = line.match(/^[-*]\s+(.+)$/);
+    if (ulMatch) {
+      flushParagraph();
+      output.push(`• ${stripInlineMarkdownForText(ulMatch[1])}`);
+      continue;
+    }
+
+    const olMatch = line.match(/^(\d+)\.\s+(.+)$/);
+    if (olMatch) {
+      flushParagraph();
+      output.push(`${olMatch[1]}. ${stripInlineMarkdownForText(olMatch[2])}`);
+      continue;
+    }
+
+    const text = stripInlineMarkdownForText(line);
+    if (text) paragraph.push(text);
+  }
+
+  flushParagraph();
+  return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function escapeHtml(text: string) {
   return text
     .replace(/&/g, "&amp;")

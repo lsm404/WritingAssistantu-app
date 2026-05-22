@@ -40,6 +40,7 @@ import {
   defaultPromptSlots,
   extractTitleFromMarkdown,
   isBuiltInPrompt,
+  markdownToPreviewCopyText,
   markdownToWechatHtml,
   type DraftMeta,
   type PromptSlot,
@@ -99,9 +100,9 @@ const REGISTER_ERROR_HINT: Record<string, string> = {
   REGISTRATION_IP_LIMIT: "当前 IP 在近期注册次数过多，请稍后再试。",
   REGISTRATION_SUBNET_LIMIT: "当前网络环境注册次数过多，请稍后再试。",
   REGISTRATION_DEVICE_LIMIT: "本设备注册账号数已达上限，请使用已有账号登录。",
-  INVALID_INVITE_CODE: "请输入 8 位字母邀请码（可含空格，系统会自动去掉非字母字符）。",
-  INVITE_CODE_NOT_FOUND: "邀请码无效，请向代理人或客服索取有效邀请码。",
-  AGENT_DISABLED: "该邀请码已停用，请联系客服。",
+  INVALID_INVITE_CODE: "请输入 8 位字母激活码（可含空格，系统会自动去掉非字母字符）。",
+  INVITE_CODE_NOT_FOUND: "激活码无效，请向代理人或客服索取有效激活码。",
+  AGENT_DISABLED: "该激活码已停用，请联系客服。",
 };
 
 function getMembershipToneClass(planName?: string | null) {
@@ -754,7 +755,7 @@ function InnerApp() {
     }
 
     if (authMode === "register" && !authForm.inviteCode.trim()) {
-      message.warning("请输入 8 位邀请码");
+      message.warning("请输入 8 位激活码");
       return;
     }
 
@@ -1157,8 +1158,12 @@ function InnerApp() {
       message.warning("当前没有可复制的内容");
       return;
     }
-    await navigator.clipboard.writeText(resultMarkdown);
-    message.success("Markdown 已复制");
+    const previewText = markdownToPreviewCopyText(
+      resultMarkdown,
+      draftMeta.title || extractTitleFromMarkdown(resultMarkdown, articleDraft.topic),
+    );
+    await navigator.clipboard.writeText(previewText);
+    message.success("已按预览格式复制");
   };
 
   const handleClearResult = () => {
