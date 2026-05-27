@@ -87,15 +87,10 @@ function stripInlineMarkdownForText(text: string) {
     .trim();
 }
 
-export function markdownToPreviewCopyText(markdown: string, title?: string) {
+export function markdownToPreviewCopyText(markdown: string) {
   const normalized = stripLeadingTitleHeading(markdown).replace(/\r\n/g, "\n").trim();
   const output: string[] = [];
-  const previewTitle = String(title || "").trim();
   let paragraph: string[] = [];
-
-  if (previewTitle) {
-    output.push(previewTitle, "");
-  }
 
   const pushBlank = () => {
     if (output.length && output[output.length - 1] !== "") {

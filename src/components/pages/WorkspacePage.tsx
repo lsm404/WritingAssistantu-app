@@ -348,7 +348,7 @@ export function WorkspacePage({
                 {resultMarkdown.trim() ? (
                   <span className="results-footer-right">
                     <Popconfirm
-                      title="二次润色"
+                      title="去AI味"
                       description="基于当前稿件做发表前质检，优化表达、事实边界和阅读节奏。"
                       okText="开始优化"
                       cancelText="先不"
@@ -361,7 +361,7 @@ export function WorkspacePage({
                         icon={<ReloadOutlined />}
                         disabled={isGenerating || isSendingDraft}
                       >
-                        二次润色
+                        去AI味
                       </Button>
                     </Popconfirm>
                   </span>

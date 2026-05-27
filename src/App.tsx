@@ -130,6 +130,11 @@ function isTextOnlyMembership(membership: UserMembership | null) {
   return (membership.plan.planCategory ?? (membership.plan.imageMonthlyLimit > 0 ? "text_image" : "text_only")) === "text_only";
 }
 
+function canUseImageGeneration(membership: UserMembership | null) {
+  if (!membership?.isActive || !membership.plan) return false;
+  return !isTextOnlyMembership(membership);
+}
+
 function getWechatAccountPersistFailureMessage(error: unknown) {
   if (error instanceof Error && error.message === "WECHAT_ACCOUNT_TRANSPORT_CRYPTO_UNAVAILABLE") {
     return "当前页面无法加密公众号 Secret，请使用 HTTPS、localhost 或桌面客户端后再保存";
@@ -417,7 +422,7 @@ function InnerApp() {
     () => getMembershipToneClass(membership?.plan?.name),
     [membership?.plan?.name],
   );
-  const isTextOnlyPlan = isTextOnlyMembership(membership);
+  const canGenerateImages = canUseImageGeneration(membership);
 
   const activePrompt = useMemo(
     () => promptSlots.find((slot) => slot.id === activePromptId) ?? promptSlots[0],
@@ -447,14 +452,10 @@ function InnerApp() {
     setArticleDraft((current) => ({ ...current, [key]: value }));
   };
 
-  useEffect(() => {
-    if (!isTextOnlyPlan) return;
-    setArticleDraft((current) =>
-      (current.imageCount ?? 0) > 0 || current.imagePrompt
-        ? { ...current, imageCount: 0, imagePrompt: "" }
-        : current,
-    );
-  }, [isTextOnlyPlan]);
+  const effectiveArticleDraft = useMemo(
+    () => (canGenerateImages ? articleDraft : { ...articleDraft, imageCount: 0, imagePrompt: "" }),
+    [articleDraft, canGenerateImages],
+  );
 
   const updateActiveAccount = (patch: Partial<WechatAccount>) => {
     if (!activeAccount) return;
@@ -620,7 +621,7 @@ function InnerApp() {
     }
 
     if (error.message === "DE_AI_QUOTA_EXCEEDED") {
-      return "二次润色额度已用完，请等下个周期刷新后再使用。";
+      return "去AI味额度已用完，请等下个周期刷新后再使用。";
     }
 
     if (error.message === "UNAUTHORIZED") {
@@ -1019,11 +1020,12 @@ function InnerApp() {
       message.warning("当前账号未开通会员，本次只生成文章内容，不生成配图");
     }
 
-    if ((articleDraft.imageCount ?? 0) > 0 && !membership?.isActive) {
+    if (false && (articleDraft.imageCount ?? 0) > 0 && !membership?.isActive) {
       message.info("将按照免费版周期性配图额度扣减；若额度不足会提示您是否开通会员。");
     }
 
-    const requestDraft = isTextOnlyPlan ? { ...articleDraft, imageCount: 0, imagePrompt: "" } : articleDraft;
+    const requestDraft = effectiveArticleDraft;
+    const requestImageCount = requestDraft.imageCount ?? 0;
     const defaultPrompt = promptSlots.find((slot) => slot.id === DEFAULT_AIGC_PROMPT_ID);
     const requestPromptVariant = regenerateForDeAi ? "aigc" : activePrompt?.variant || "aigc";
     const requestSystemPrompt = regenerateForDeAi
@@ -1063,14 +1065,14 @@ function InnerApp() {
       const digest = summarizeMarkdown(cleanArticleMd);
       let finalMarkdown = cleanArticleMd;
 
-      if ((articleDraft.imageCount ?? 0) > 0) {
+      if (requestImageCount > 0) {
         setIsGeneratingImages(true);
         try {
           const imageUrls = await generateArticleIllustrations({
             articleMd: cleanArticleMd,
             title,
-            count: articleDraft.imageCount ?? 0,
-            imagePrompt: articleDraft.imagePrompt,
+            count: requestImageCount,
+            imagePrompt: requestDraft.imagePrompt,
             authToken,
           });
           finalMarkdown = stripUnicodeReplacementChars(mergeArticleWithImages(cleanArticleMd, imageUrls));
@@ -1089,7 +1091,7 @@ function InnerApp() {
         digest: regenerateForDeAi ? digest : current.digest || digest,
       }));
       message.success(
-        (articleDraft.imageCount ?? 0) > 0
+        requestImageCount > 0
           ? "文章和配图生成完成"
           : "文章生成完成",
       );
@@ -1158,10 +1160,7 @@ function InnerApp() {
       message.warning("当前没有可复制的内容");
       return;
     }
-    const previewText = markdownToPreviewCopyText(
-      resultMarkdown,
-      draftMeta.title || extractTitleFromMarkdown(resultMarkdown, articleDraft.topic),
-    );
+    const previewText = markdownToPreviewCopyText(resultMarkdown);
     await navigator.clipboard.writeText(previewText);
     message.success("已按预览格式复制");
   };
@@ -1257,13 +1256,13 @@ function InnerApp() {
 
         {activeView === "workspace" ? (
           <WorkspacePage
-            articleDraft={articleDraft}
+            articleDraft={effectiveArticleDraft}
             resultMarkdown={resultMarkdown}
             settingsCollapsed={settingsCollapsed}
             isGenerating={isGenerating}
             isGeneratingImages={isGeneratingImages}
             isSendingDraft={isSendingDraft}
-            showImageCountSelector={!isTextOnlyPlan}
+            showImageCountSelector={canGenerateImages}
             imageCountOptions={workspaceImageCountOptions}
             styleOptions={workspaceStyleOptions}
             rewriteGoalOptions={workspaceRewriteGoalOptions}
@@ -1329,7 +1328,14 @@ function InnerApp() {
           />
         ) : null}
 
-        {activeView === "image" ? (
+        {activeView === "image" && !canGenerateImages ? (
+          <PlaceholderPage
+            title="图片生成"
+            description="当前账号暂未开通图片生成功能，可在会员中心开通支持配图的套餐。"
+          />
+        ) : null}
+
+        {activeView === "image" && canGenerateImages ? (
           <ImagePage
             membership={membership}
             quota={quota}
