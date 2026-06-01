@@ -13,6 +13,7 @@ import {
 } from "@ant-design/icons";
 import type { GeneratePayload, WechatAccount } from "../../lib/types";
 import {
+  lengthOptions,
   parseWorkspaceOptionalEnum,
   parseWorkspaceOptionalImageCount,
   WORKSPACE_TOPIC_MAX_CHARS,
@@ -140,19 +141,19 @@ export function WorkspacePage({
                     主题
                     <span className="required-star">*</span>
                   </div>
-                  <Input
+                  <TextArea
+                    className="topic-textarea"
                     placeholder="输入文章主题或核心观点"
                     value={articleDraft.topic}
                     onChange={(event) =>
                       onArticleFieldChange("topic", event.target.value.slice(0, WORKSPACE_TOPIC_MAX_CHARS))
                     }
-                    suffix={
-                      <span className="input-counter">
-                        {articleDraft.topic.length}/{WORKSPACE_TOPIC_MAX_CHARS}
-                      </span>
-                    }
                     maxLength={WORKSPACE_TOPIC_MAX_CHARS}
+                    autoSize={{ minRows: 1, maxRows: 4 }}
                   />
+                  <div className="input-counter input-counter--right">
+                    {articleDraft.topic.length}/{WORKSPACE_TOPIC_MAX_CHARS}
+                  </div>
                 </div>
 
                 <div className="form-item">
@@ -178,6 +179,14 @@ export function WorkspacePage({
                     <div>通用模板（可过新版AIGC）；经典模板：使用 AIGC 升级前的逻辑，基本也不会有AI特征，疑似AI占比强，但是风格更加稳重，</div>
                     {/* <div>经典模板：使用 AIGC 升级前的逻辑，也不会有AI特征，疑似AI占比强，特点：但是风格更加稳重，</div> */}
                   </div>
+                </div>
+                <div className="form-item">
+                  <div className="form-item-label">字数</div>
+                  <Select
+                    value={articleDraft.length}
+                    onChange={(value) => onArticleFieldChange("length", value)}
+                    options={lengthOptions}
+                  />
                 </div>
                 {showImageCountSelector ? (
                   <div className="form-item">

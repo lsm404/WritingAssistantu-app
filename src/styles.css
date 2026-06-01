@@ -1158,6 +1158,17 @@ body {
   color: var(--text-muted);
 }
 
+.input-counter--right {
+  align-self: flex-end;
+  line-height: 1;
+}
+
+.topic-textarea {
+  resize: none;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .helper-row {
   display: flex;
   align-items: center;
