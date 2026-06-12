@@ -389,7 +389,7 @@ export const lengthOptions: Array<{ label: string; value: ArticleLength }> = [
 ];
 
 /** 工作台主题字数上限（生成请求校验） */
-export const WORKSPACE_TOPIC_MAX_CHARS = 1000;
+export const WORKSPACE_TOPIC_MAX_CHARS = 300;
 
 export const modeOptions: Array<{ label: string; value: WritingMode }> = [
   { label: "标准干货", value: "standard" },

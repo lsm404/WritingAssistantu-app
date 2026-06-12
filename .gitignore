@@ -46,6 +46,7 @@ updater/cdn-base.txt
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+*.tar
 
 # ===== Logs =====
 logs/

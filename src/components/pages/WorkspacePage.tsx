@@ -175,8 +175,8 @@ export function WorkspacePage({
                     options={promptSlots.map((s) => ({ label: s.name, value: s.id }))}
                   />
                   <div className="helper-text" style={{ marginTop: 6, lineHeight: 1.7 }}>
-                    温馨提示：绿色人工特征和黄色疑似AI特征都不影响使用哦！
-                    <div>通用模板（可过新版AIGC）；经典模板：使用 AIGC 升级前的逻辑，基本也不会有AI特征，疑似AI占比强，但是风格更加稳重，</div>
+                    温馨提示：绿色人工特征和黄色疑似AI特征都不影响使用哦！可以切换下面的提示词来提高效果呢！
+                    <div>通用模板：口语化更强，语义没有经典版好，过朱雀比经典高；经典模板：使用 AIGC 升级前的逻辑，基本也不会有AI特征，疑似AI占比强，但是风格更加稳重，</div>
                     {/* <div>经典模板：使用 AIGC 升级前的逻辑，也不会有AI特征，疑似AI占比强，特点：但是风格更加稳重，</div> */}
                   </div>
                 </div>
